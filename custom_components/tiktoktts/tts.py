@@ -15,7 +15,16 @@ from homeassistant.components.tts import CONF_LANG, PLATFORM_SCHEMA, Provider
 import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from .const import *
+from .const import (
+    CONF_ENDPOINT,
+    CONF_VOICE,
+    DEFAULT_ENDPOINT,
+    DEFAULT_LANG,
+    DEFAULT_VOICE,
+    SUPPORTED_LANGUAGES,
+    SUPPORTED_OPTIONS,
+    SUPPORTED_VOICES,
+)
 
 
 _LOGGER = logging.getLogger(__name__)
