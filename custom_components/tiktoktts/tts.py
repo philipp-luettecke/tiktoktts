@@ -105,7 +105,6 @@ class TikTokTTSProvider(Provider):
                     return (None, None)
 
                 data = await request.read()
-                # _LOGGER.info(data.decode("utf8"))
                 audio = json.loads(data.decode("utf8"))
                 data = base64.b64decode(audio["data"])
                 audiotype = "wav"

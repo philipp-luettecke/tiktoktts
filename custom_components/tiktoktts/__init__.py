@@ -1,7 +1,7 @@
 """Custom integration to integrate tiktoktts with Home Assistant.
 
 For more details about this integration, please refer to
-https://github.com/ludeeus/tiktoktts
+https://github.com/philipp-luettecke/tiktoktts
 """
 from __future__ import annotations
 
@@ -25,15 +25,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up this integration using UI."""
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN][entry.entry_id] = TikTokTTSProvider(hass, entry)
-    #     hass=hass,
-    #     client=TikTokTTSApiClient(
-    #         username=entry.data[CONF_USERNAME],
-    #         password=entry.data[CONF_PASSWORD],
-    #         session=async_get_clientsession(hass),
-    #     ),
-    # )
-    # https://developers.home-assistant.io/docs/integration_fetching_data#coordinated-single-api-poll-for-data-for-all-entities
-
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))
 
