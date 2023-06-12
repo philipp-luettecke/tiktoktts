@@ -6,9 +6,8 @@
 
 [![hacs][hacsbadge]][hacs]
 ![Project Maintenance][maintenance-shield]
-[![BuyMeCoffee][buymecoffeebadge]][buymecoffee]
 
-_Integration to integrate with [TikTok TTS API][TikTok TTS API]._
+_Integration to use the [reverse engineered TikTok speech API by Weilbyte](https://weilbyte.github.io/tiktok-tts/)._
 
 **This integration will set up the following platforms.**
 
@@ -26,17 +25,23 @@ Platform | Description
 1. Restart Home Assistant
 1. Now add `tiktoktts` as platform in your `configuration.yaml`
 
+```yaml
+tts:
+  - platform: tiktoktts
+```
 
 <!--1. In the HA UI go to "Configuration" -> "Integrations" click "+" and search for "TikTok TTS
 
 ## Configuration is done in the UI
 
-<!---->
+
 
 ## Contributions are welcome!
 
 If you want to contribute to this please read the [Contribution guidelines](CONTRIBUTING.md)
 
+
+<!--->
 ***
 
 [tiktoktts]: https://github.com/philipp-luettecke/tiktoktts
