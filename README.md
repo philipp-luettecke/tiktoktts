@@ -9,6 +9,12 @@
 
 _Integration to use the [reverse engineered TikTok speech API by Weilbyte](https://weilbyte.github.io/tiktok-tts/)._
 
+As @Weilbyte s work is based on the following repository, I want to attribute them here as well. 
+
+https://github.com/oscie57/tiktok-voice
+
+Visit their page and appreciate their work as well!
+
 **This integration will set up the following platforms.**
 
 Platform | Description
