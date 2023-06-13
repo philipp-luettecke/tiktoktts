@@ -55,14 +55,14 @@ data:
 
 ## Configuration is done in the UI
 
-
+<!--->
 
 ## Contributions are welcome!
 
 If you want to contribute to this please read the [Contribution guidelines](CONTRIBUTING.md)
 
 
-<!--->
+
 ***
 
 [tiktoktts]: https://github.com/philipp-luettecke/tiktoktts
