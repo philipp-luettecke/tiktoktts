@@ -9,7 +9,7 @@
 
 _Integration to use the [reverse engineered TikTok speech API by Weilbyte](https://weilbyte.github.io/tiktok-tts/)._
 
-As @Weilbyte s work is based on the following repository, I want to attribute them here as well. 
+As @Weilbyte work is based on the following repository, I want to attribute them here as well. 
 
 https://github.com/oscie57/tiktok-voice
 
@@ -34,6 +34,21 @@ Platform | Description
 ```yaml
 tts:
   - platform: tiktoktts
+```
+
+## How to use
+
+After installing the integration you will be presented with a new Service `tiktoktts_say`.
+You can now call this service and add a option `voice` to select one of the voices available in `custom_component/tiktoktts/const.py`.
+
+```yaml
+service: tts.tiktoktts_say
+data:
+  cache: false
+  message: Sample Text
+  entity_id: media_player.<entity_id>
+  options:
+    voice: en_001
 ```
 
 <!--1. In the HA UI go to "Configuration" -> "Integrations" click "+" and search for "TikTok TTS
@@ -63,6 +78,6 @@ If you want to contribute to this please read the [Contribution guidelines](CONT
 [forum-shield]: https://img.shields.io/badge/community-forum-brightgreen.svg?style=for-the-badge
 [forum]: https://community.home-assistant.io/
 [license-shield]: https://img.shields.io/github/license/philipp-luettecke/tiktoktts.svg?style=for-the-badge
-[maintenance-shield]: https://img.shields.io/badge/maintainer-Philipp%20Luettecke%20%40philippluettecke-blue.svg?style=for-the-badge
+[maintenance-shield]: https://img.shields.io/badge/maintainer-Philipp%20Luettecke-blue.svg?style=for-the-badge
 [releases-shield]: https://img.shields.io/github/release/philipp-luettecke/tiktoktts.svg?style=for-the-badge
 [releases]: https://github.com/philipp-luettecke/tiktoktts/releases
