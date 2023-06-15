@@ -50,7 +50,7 @@ data:
   message: Sample Text
   entity_id: media_player.<entity_id>
   options:
-    voice: en_001
+    voice: en_us_001
 ```
 
 <!--1. In the HA UI go to "Configuration" -> "Integrations" click "+" and search for "TikTok TTS
