@@ -5,58 +5,69 @@ LOGGER: Logger = getLogger(__package__)
 
 NAME = "TikTok TTS"
 DOMAIN = "tiktoktts"
-VERSION = "0.0.1"
-ATTRIBUTION = "Data provided by http://jsonplaceholder.typicode.com/"
+ATTRIBUTION = "Using API from https://github.com/Weilbyte/tiktok-tts"
 
 CONF_ENDPOINT = "api_endpoint"
-DEFAULT_ENDPOINT = "https://tiktok-tts.weilnet.workers.dev"
 CONF_VOICE = "voice"
 
+DEFAULT_ENDPOINT = "https://tiktok-tts.weilnet.workers.dev"
 DEFAULT_VOICE = "de_001"
 DEFAULT_LANG = "de"
 
+# available voices taken over from
+# https://raw.githubusercontent.com/oscie57/tiktok-voice/main/main.py
+
 SUPPORTED_VOICES = [
-    "en_female_ht_f08_wonderful_world",
-    "en_us_001",
-    "en_us_006",
-    "en_us_007",
-    "en_us_009",
-    "en_us_010",
-    "en_uk_001",
-    "en_uk_003",
-    "en_au_001",
-    "en_au_002",
-    "fr_001",
-    "fr_002",
-    "de_001",
-    "de_002",
-    "es_002",
-    "es_mx_002",
-    "br_003",
-    "br_004",
-    "br_005",
-    "id_001",
-    "jp_001",
-    "jp_003",
-    "jp_005",
-    "jp_006",
-    "kr_002",
-    "kr_004",
-    "kr_003",
-    "en_us_ghostface",
-    "en_us_chewbacca",
-    "en_us_c3po",
-    "en_us_stitch",
-    "en_us_stormtrooper",
-    "en_us_rocket",
-    "en_female_f08_salut_damour",
-    "en_male_m03_lobby",
-    "en_male_m03_sunshine_soon",
-    "en_female_f08_warmy_breeze",
-    "en_female_ht_f08_glorious",
-    "en_male_sing_funny_it_goes_up",
-    "en_male_m2_xhxs_m03_silly",
+    # DISNEY VOICES
+    "en_us_ghostface",  # Ghost Face
+    "en_us_chewbacca",  # Chewbacca
+    "en_us_c3po",  # C3PO
+    "en_us_stitch",  # Stitch
+    "en_us_stormtrooper",  # Stormtrooper
+    "en_us_rocket",  # Rocket
+    # ENGLISH VOICES
+    "en_au_001",  # English AU - Female
+    "en_au_002",  # English AU - Male
+    "en_uk_001",  # English UK - Male 1
+    "en_uk_003",  # English UK - Male 2
+    "en_us_001",  # English US - Female (Int. 1)
+    "en_us_002",  # English US - Female (Int. 2)
+    "en_us_006",  # English US - Male 1
+    "en_us_007",  # English US - Male 2
+    "en_us_009",  # English US - Male 3
+    "en_us_010",  # English US - Male 4
+    # EUROPE VOICES
+    "fr_001",  # French - Male 1
+    "fr_002",  # French - Male 2
+    "de_001",  # German - Female
+    "de_002",  # German - Male
+    "es_002",  # Spanish - Male
+    # AMERICA VOICES
+    "es_mx_002",  # Spanish MX - Male
+    "br_001",  # Portuguese BR - Female 1
+    "br_003",  # Portuguese BR - Female 2
+    "br_004",  # Portuguese BR - Female 3
+    "br_005",  # Portuguese BR - Male
+    # ASIA VOICES
+    "id_001",  # Indonesian - Female
+    "jp_001",  # Japanese - Female 1
+    "jp_003",  # Japanese - Female 2
+    "jp_005",  # Japanese - Female 3
+    "jp_006",  # Japanese - Male
+    "kr_002",  # Korean - Male 1
+    "kr_003",  # Korean - Female
+    "kr_004",  # Korean - Male 2
+    # SINGING VOICES
+    "en_female_f08_salut_damour"  # Alto
+    "en_male_m03_lobby"  # Tenor
+    "en_female_f08_warmy_breeze"  # Warmy Breeze
+    "en_male_m03_sunshine_soon"  # Sunshine Soon
+    # OTHER
+    "en_male_narration"  # narrator
+    "en_male_funny"  # wacky
+    "en_female_emotional",  # peaceful
 ]
+
 
 SUPPORTED_LANGUAGES = ["en_us", "en_uk", "fr", "de", "es", "br", "id", "jp", "kr"]
 

@@ -9,7 +9,7 @@
 
 _Integration to use the [reverse engineered TikTok speech API by Weilbyte](https://weilbyte.github.io/tiktok-tts/)._
 
-As @Weilbyte work is based on the following repository, I want to attribute them here as well. 
+As @Weilbyte work is based on the following repository, I want to attribute them here as well.
 
 https://github.com/oscie57/tiktok-voice
 
@@ -40,6 +40,8 @@ tts:
 
 After installing the integration you will be presented with a new Service `tiktoktts_say`.
 You can now call this service and add a option `voice` to select one of the voices available in `custom_component/tiktoktts/const.py`.
+
+I'm trying to keep the list equivalent to the voices available on the original [tiktok-voice](https://github.com/oscie57/tiktok-voice) rpositories [Wiki page](https://github.com/oscie57/tiktok-voice/wiki/Voice-Codes).
 
 ```yaml
 service: tts.tiktoktts_say

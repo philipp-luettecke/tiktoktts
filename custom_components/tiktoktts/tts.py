@@ -29,7 +29,7 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
-
+# Platform schema for configuration via configuration.yml
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
     {
         vol.Optional(CONF_ENDPOINT, default=DEFAULT_ENDPOINT): cv.string,

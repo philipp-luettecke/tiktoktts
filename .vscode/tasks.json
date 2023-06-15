@@ -6,6 +6,12 @@
             "type": "shell",
             "command": "scripts/develop",
             "problemMatcher": []
+        },
+        {
+            "label": "Run Linter",
+            "type": "shell",
+            "command": "scripts/lint",
+            "problemMatcher": []
         }
     ]
 }
