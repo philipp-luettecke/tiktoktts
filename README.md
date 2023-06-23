@@ -23,6 +23,26 @@ Platform | Description
 
 ## Installation
 
+There are two methods to install this custom_integration.
+
+### Installation with HACS
+
+As this is a HACS component, you can simply add this repository [philipp-luettecke/tiktoktts](https://github.com/philipp-luettecke/tiktoktts) as custom repository to HACS and afterwards search for the TikTokTTS Integration.
+Now you can install it.
+
+1. Add `https://github.com/philipp-luettecke/tiktoktts` to HACS as custom repository
+1. Install `TikTokTTS`component
+1. Restart Home Assistant
+1. Now add `tiktoktts` as platform in your `configuration.yaml`
+
+```yaml
+tts:
+  - platform: tiktoktts
+```
+
+
+### Manual Installation
+
 1. Using the tool of choice open the directory (folder) for your HA configuration (where you find `configuration.yaml`).
 1. If you do not have a `custom_components` directory (folder) there, you need to create it.
 1. In the `custom_components` directory (folder) create a new folder called `tiktoktts`.
