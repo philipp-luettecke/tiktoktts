@@ -107,7 +107,7 @@ class TikTokTTSProvider(Provider):
                 data = await request.read()
                 audio = json.loads(data.decode("utf8"))
                 data = base64.b64decode(audio["data"])
-                audiotype = "wav"
+                audiotype = "mp3"
 
         except (asyncio.TimeoutError, aiohttp.ClientError):
             _LOGGER.error("Timeout for TikTokTTS API")
