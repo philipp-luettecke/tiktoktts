@@ -1,0 +1,22 @@
+{
+    "config": {
+        "step": {
+            "user": {
+                "description": "Wenn du Hilfe bei der Einrichtung der Integration benötigst, schau hier: https://github.com/philipp-luettecke/tiktoktts",
+                "data": {
+                    "api_endpoint": "API Endpunkt",
+                    "voice": "Stimme",
+                    "language": "Sprache"
+                }
+            }
+        },
+        "error": {
+            "auth": "Nutzername/Passwort sind falsch.",
+            "connection": "Verbindung zum Server kann nicht hergestellt werden.",
+            "unknown": "Es ist ein unbekannter Fehler aufgetreten."
+        },
+        "abort": {
+            "already_configured": "Integration ist bereits konfiguriert."
+        }
+    }
+}

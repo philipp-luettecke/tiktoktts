@@ -33,12 +33,7 @@ Now you can install it.
 1. Add `https://github.com/philipp-luettecke/tiktoktts` to HACS as custom repository
 1. Install `TikTokTTS`component
 1. Restart Home Assistant
-1. Now add `tiktoktts` as platform in your `configuration.yaml`
-
-```yaml
-tts:
-  - platform: tiktoktts
-```
+1. Now add `tiktoktts` as platform in the Integrations overview
 
 
 ### Manual Installation
@@ -49,12 +44,7 @@ tts:
 1. Download _all_ the files from the `custom_components/tiktoktts/` directory (folder) in this repository.
 1. Place the files you downloaded in the new directory (folder) you created.
 1. Restart Home Assistant
-1. Now add `tiktoktts` as platform in your `configuration.yaml`
-
-```yaml
-tts:
-  - platform: tiktoktts
-```
+1. Now add `tiktoktts` as platform in the Integrations overview
 
 ## How to use
 

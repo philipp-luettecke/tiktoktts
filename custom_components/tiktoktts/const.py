@@ -6,6 +6,7 @@ LOGGER: Logger = getLogger(__package__)
 NAME = "TikTok TTS"
 DOMAIN = "tiktoktts"
 ATTRIBUTION = "Using API from https://github.com/Weilbyte/tiktok-tts"
+UUID = "tiktoktts-uuid"
 
 CONF_ENDPOINT = "api_endpoint"
 CONF_VOICE = "voice"
@@ -69,6 +70,16 @@ SUPPORTED_VOICES = [
 ]
 
 
-SUPPORTED_LANGUAGES = ["en_us", "en_uk", "fr", "de", "es", "br", "id", "jp", "kr"]
+SUPPORTED_LANGUAGES = ["en", "fr", "de", "es", "pt", "id", "jpn", "ko"]
+
+DEFAULT_VOICES = {
+    "en":"en_us_001",
+    "fr":"fr_001",
+    "de":"de_001",
+    "es":"es_001",
+    "pt":"br_001",
+    "id":"id_001",
+    "jpn":"jp_001",
+    "ko":"kr_002"}
 
 SUPPORTED_OPTIONS = [CONF_VOICE]
