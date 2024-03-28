@@ -2,10 +2,11 @@
     "config": {
         "step": {
             "user": {
-                "description": "If you need help with the configuration have a look here: https://github.com/ludeeus/tiktoktts",
+                "description": "If you need help with the configuration have a look here: https://github.com/philipp-luettecke/tiktoktts",
                 "data": {
-                    "username": "Username",
-                    "password": "Password"
+                    "api_endpoint": "API endpoint",
+                    "voice": "Voice",
+                    "language": "Language"
                 }
             }
         },
@@ -13,6 +14,9 @@
             "auth": "Username/Password is wrong.",
             "connection": "Unable to connect to the server.",
             "unknown": "Unknown error occurred."
+        },
+        "abort": {
+            "already_configured": "Device is already configured"
         }
     }
 }
