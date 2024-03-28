@@ -27,9 +27,8 @@ from .const import (
     SUPPORTED_LANGUAGES,
     SUPPORTED_OPTIONS,
     SUPPORTED_VOICES,
-    DEFAULT_VOICES,
-    DOMAIN
-)
+    DEFAULT_VOICES
+    )
 
 
 _LOGGER = logging.getLogger(__name__)
