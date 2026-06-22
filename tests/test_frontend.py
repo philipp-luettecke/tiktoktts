@@ -11,7 +11,7 @@ from homeassistant.core import HomeAssistant
 
 from custom_components.tiktoktts.frontend import JSModuleRegistration, _read_version
 
-CARD_URL = "/tiktoktts/tiktoktts-card.js?v=1.2.3"
+CARD_URL = "/tiktoktts/tiktoktts-card.js?v=1.2.4"
 
 
 def _seed_module_manager(hass: HomeAssistant) -> UrlManager:
@@ -21,15 +21,15 @@ def _seed_module_manager(hass: HomeAssistant) -> UrlManager:
     return manager
 
 
-def _registration(hass: HomeAssistant, version: str = "1.2.3") -> JSModuleRegistration:
+def _registration(hass: HomeAssistant, version: str = "1.2.4") -> JSModuleRegistration:
     reg = JSModuleRegistration(hass)
     reg._version = version
     return reg
 
 
 def test_read_version_returns_manifest_version() -> None:
-    # The manifest currently pins 1.2.3; the helper must read it back.
-    assert _read_version() == "1.2.3"
+    # The manifest currently pins 1.2.4; the helper must read it back.
+    assert _read_version() == "1.2.4"
 
 
 async def test_registers_card_module_url(hass: HomeAssistant) -> None:

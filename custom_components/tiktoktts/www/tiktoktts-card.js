@@ -848,13 +848,21 @@ class TikTokTTSCard extends HTMLElement {
   static getStubConfig() { return {}; }
 }
 
-customElements.define("tiktoktts-card", TikTokTTSCard);
+// Guard against double-registration. If this file is loaded more than once -
+// e.g. a stale Lovelace dashboard resource left over from an older version
+// (which registered the card as a resource) plus the current add_extra_js_url
+// registration - defining the element twice throws "name 'tiktoktts-card' has
+// already been used with this registry". Registering only when absent keeps the
+// upgrade path crash-free.
+if (!customElements.get("tiktoktts-card")) {
+  customElements.define("tiktoktts-card", TikTokTTSCard);
 
-// Register with the HA card picker so the card appears in the "Add Card" UI
-window.customCards = window.customCards || [];
-window.customCards.push({
-  type:        "tiktoktts-card",
-  name:        "TikTok TTS",
-  description: "Voice testing panel for the TikTok TTS integration",
-  preview:     true,
-});
+  // Register with the HA card picker so the card appears in the "Add Card" UI
+  window.customCards = window.customCards || [];
+  window.customCards.push({
+    type:        "tiktoktts-card",
+    name:        "TikTok TTS",
+    description: "Voice testing panel for the TikTok TTS integration",
+    preview:     true,
+  });
+}

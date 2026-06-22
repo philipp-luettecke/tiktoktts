@@ -518,6 +518,9 @@ Go to **Settings -> System -> Logs** and filter for `tiktoktts` to find detailed
 
 ## Changelog
 
+### v1.2.4
+- **Fix:** Dashboard card no longer crashes with `the name "tiktoktts-card" has already been used with this registry` after upgrading. Older versions registered the card as a Lovelace dashboard resource; the current version registers it via the frontend module API, so on upgrade both could load the card and define the element twice. The card now guards against double-registration. If you upgraded, you can also remove the leftover `/tiktoktts/tiktoktts-card.js` entry under Settings → Dashboards → Resources.
+
 ### v1.2.3
 - **Fix:** Configured default voice is now preserved on a fresh start - the voice dropdown no longer reset to the first voice of the language (alphabetically) when there was no restored state to apply
 - **Fix:** Unloading or disabling one config entry when multiple exist no longer triggers an endless reload cascade between entries - only the entry that owns the shared select/text/button entities re-homes them to a surviving entry
