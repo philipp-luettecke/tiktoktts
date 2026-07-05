@@ -36,6 +36,7 @@ a ModuleNotFoundError during HA's custom integration loading because Python
 resolves relative imports differently for subpackages inside custom_components.
 Instead, the domain string and logger are defined locally here.
 """
+
 from __future__ import annotations
 
 import json
@@ -53,9 +54,9 @@ from homeassistant.core import HomeAssistant
 _LOGGER = logging.getLogger(__name__)
 
 # Domain and card filename defined locally to avoid relative import issues
-_DOMAIN        = "tiktoktts"
+_DOMAIN = "tiktoktts"
 _CARD_FILENAME = "tiktoktts-card.js"
-_URL_BASE      = f"/{_DOMAIN}"
+_URL_BASE = f"/{_DOMAIN}"
 
 
 def _read_version() -> str:
@@ -66,7 +67,9 @@ def _read_version() -> str:
     Falls back to "0.0.0" if the manifest cannot be parsed.
     """
     try:
-        manifest = json.loads((Path(__file__).parent.parent / "manifest.json").read_text())
+        manifest = json.loads(
+            (Path(__file__).parent.parent / "manifest.json").read_text()
+        )
         return manifest.get("version", "0.0.0")
     except Exception:  # noqa: BLE001
         return "0.0.0"
@@ -107,10 +110,13 @@ class JSModuleRegistration:
         Catches RuntimeError silently - it means the path is already
         registered (e.g. after a config entry reload).
         """
+        # cache_headers stays enabled: the card URL carries a ?v=<version>
+        # cache-buster, so browsers can cache aggressively without ever
+        # serving a stale card after an upgrade.
         www_path = Path(__file__).parent.parent / "www"
         try:
             await self.hass.http.async_register_static_paths(
-                [StaticPathConfig(_URL_BASE, str(www_path), cache_headers=False)]
+                [StaticPathConfig(_URL_BASE, str(www_path))]
             )
             _LOGGER.debug(
                 "TikTokTTS: static path registered: %s -> %s", _URL_BASE, www_path

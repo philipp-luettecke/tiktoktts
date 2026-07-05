@@ -23,19 +23,29 @@ __init__.py detects the data change and reloads the integration automatically.
 
 Error key -> UI message mapping is defined in strings.json / translations/en.json.
 """
+
 from __future__ import annotations
 
 import asyncio
 from typing import Any
 
 import aiohttp
-import voluptuous as vol
-
-from homeassistant.config_entries import ConfigEntry, ConfigFlow, ConfigFlowResult, OptionsFlow
+from homeassistant.config_entries import (
+    ConfigEntry,
+    ConfigFlow,
+    ConfigFlowResult,
+    OptionsFlow,
+)
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.issue_registry import async_delete_issue
+from homeassistant.helpers.selector import (
+    TextSelector,
+    TextSelectorConfig,
+    TextSelectorType,
+)
+import voluptuous as vol
 
 from .const import (
     ALL_VOICES,
@@ -72,10 +82,15 @@ from .const import (
 # The runtime request timeout for actual TTS generation is REQUEST_TIMEOUT in const.py.
 _TEST_TIMEOUT = 10
 
+# Masks the TikTok session_id in the setup and options forms - it is a
+# credential and should not be echoed on screen.
+_SESSION_ID_SELECTOR = TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD))
+
 
 # ---------------------------------------------------------------------------
 # Connection test helpers
 # ---------------------------------------------------------------------------
+
 
 async def _test_proxy_endpoint(hass: HomeAssistant, endpoint: str) -> str | None:
     """Check that a proxy endpoint is reachable and reports itself as available.
@@ -89,18 +104,19 @@ async def _test_proxy_endpoint(hass: HomeAssistant, endpoint: str) -> str | None
     session = async_get_clientsession(hass)
     try:
         async with asyncio.timeout(_TEST_TIMEOUT):
-            resp = await session.get(f"{endpoint}{PROXY_API_PATH_STATUS}")
-            if resp.status == 200:
+            async with session.get(f"{endpoint}{PROXY_API_PATH_STATUS}") as resp:
+                if resp.status != 200:
+                    return "endpoint_bad_status"
                 data = await resp.json()
-                if data.get("data", {}).get(PROXY_API_FIELD_AVAILABLE) is True:
-                    return None       # Success - endpoint is up and available
-                return "endpoint_unavailable"
-            return "endpoint_bad_status"
+        if data.get("data", {}).get(PROXY_API_FIELD_AVAILABLE) is True:
+            return None  # Success - endpoint is up and available
+        return "endpoint_unavailable"
     except asyncio.TimeoutError:
         return "endpoint_timeout"
     except aiohttp.ClientError:
         return "endpoint_connection_error"
     except Exception:  # noqa: BLE001 - catch-all so the flow never crashes
+        LOGGER.exception("Unexpected error testing proxy endpoint %s", endpoint)
         return "endpoint_unknown_error"
 
 
@@ -132,31 +148,31 @@ async def _test_direct_endpoint(
     }
     try:
         async with asyncio.timeout(_TEST_TIMEOUT):
-            resp = await session.post(
+            async with session.post(
                 f"{endpoint}{DIRECT_API_PATH}",
                 params=params,
                 headers=headers,
-            )
-            if resp.status == 200:
+            ) as resp:
+                if resp.status != 200:
+                    return "endpoint_bad_status"
                 data = await resp.json()
-                if data.get(DIRECT_API_FIELD_STATUS_CODE) == DIRECT_API_STATUS_OK:
-                    return None   # Success - endpoint accepted the session_id
-                LOGGER.debug(
-                    "Direct API test rejected: %s", data.get("status_msg", "unknown")
-                )
-                return "direct_api_rejected"
-            return "endpoint_bad_status"
+        if data.get(DIRECT_API_FIELD_STATUS_CODE) == DIRECT_API_STATUS_OK:
+            return None  # Success - endpoint accepted the session_id
+        LOGGER.debug("Direct API test rejected: %s", data.get("status_msg", "unknown"))
+        return "direct_api_rejected"
     except asyncio.TimeoutError:
         return "endpoint_timeout"
     except aiohttp.ClientError:
         return "endpoint_connection_error"
-    except Exception:  # noqa: BLE001
+    except Exception:  # noqa: BLE001 - catch-all so the flow never crashes
+        LOGGER.exception("Unexpected error testing direct endpoint %s", endpoint)
         return "endpoint_unknown_error"
 
 
 # ---------------------------------------------------------------------------
 # Initial setup flow
 # ---------------------------------------------------------------------------
+
 
 class TikTokTTSConfigFlow(ConfigFlow, domain=DOMAIN):
     """Multi-step config flow for initial integration setup.
@@ -244,7 +260,9 @@ class TikTokTTSConfigFlow(ConfigFlow, domain=DOMAIN):
             step_id="proxy",
             data_schema=vol.Schema(
                 {
-                    vol.Required(CONF_ENDPOINT, default=DEFAULT_PROXY_ENDPOINT): cv.string,
+                    vol.Required(
+                        CONF_ENDPOINT, default=DEFAULT_PROXY_ENDPOINT
+                    ): cv.string,
                     vol.Required(CONF_VOICE, default=DEFAULT_VOICE): vol.In(ALL_VOICES),
                 }
             ),
@@ -291,10 +309,10 @@ class TikTokTTSConfigFlow(ConfigFlow, domain=DOMAIN):
             step_id="direct",
             data_schema=vol.Schema(
                 {
-                    vol.Required(CONF_ENDPOINT, default=DIRECT_API_ENDPOINTS[0]): vol.In(
-                        DIRECT_API_ENDPOINTS
-                    ),
-                    vol.Required(CONF_SESSION_ID): cv.string,
+                    vol.Required(
+                        CONF_ENDPOINT, default=DIRECT_API_ENDPOINTS[0]
+                    ): vol.In(DIRECT_API_ENDPOINTS),
+                    vol.Required(CONF_SESSION_ID): _SESSION_ID_SELECTOR,
                     vol.Required(CONF_VOICE, default=DEFAULT_VOICE): vol.In(ALL_VOICES),
                 }
             ),
@@ -312,6 +330,7 @@ class TikTokTTSConfigFlow(ConfigFlow, domain=DOMAIN):
 # ---------------------------------------------------------------------------
 # Options (reconfigure) flow
 # ---------------------------------------------------------------------------
+
 
 class TikTokTTSOptionsFlow(OptionsFlow):
     """Reconfigure flow shown when the user clicks the gear icon.
@@ -413,7 +432,7 @@ class TikTokTTSOptionsFlow(OptionsFlow):
                     vol.Required(
                         CONF_SESSION_ID,
                         default=current.get(CONF_SESSION_ID, ""),
-                    ): cv.string,
+                    ): _SESSION_ID_SELECTOR,
                     vol.Required(
                         CONF_VOICE,
                         default=current.get(CONF_VOICE, DEFAULT_VOICE),

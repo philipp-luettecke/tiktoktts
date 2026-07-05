@@ -1,94 +1,54 @@
-"""Lifecycle bookkeeping for the shared singleton entities.
+"""Re-homing of the shared singleton entities between config entries.
 
-The select / text / button platforms create exactly one set of entities for the
-whole integration, no matter how many config entries exist (proxy, direct, or
-both). That convenience requires a small amount of cross-entry state, which is
-centralised here so __init__.py's setup/unload methods stay readable:
+The select / text / button platforms are forwarded by exactly one config
+entry at a time - the "owner", recorded in hass.data[DOMAIN] under
+HASS_DATA_SHARED_OWNER. When the owner is unloaded while other entries
+remain, the shared entities would be left registered under a disabled
+config entry (and could not be re-enabled), so a surviving entry must be
+reloaded to claim ownership and recreate them under itself.
 
-  * which entries have forwarded the shared platforms (so unload tears down the
-    right set), tracked per entry, and
-  * which entry actually CREATED the shared entities - the "owner". Only the
-    owner needs to re-home the entities to a survivor when it is unloaded while
-    other entries remain, otherwise the entities would be left registered under a
-    disabled config entry and could not be re-enabled.
-
-None of these functions create or destroy entities themselves; they only manage
-the flags in hass.data[DOMAIN] that the platform guards and __init__.py read.
+The reload cannot run inside the owner's unload, so it is deferred to a
+tracked hass task that checks, once the unload has fully completed, whether
+ownership is still unclaimed. This makes the deferral safe against the two
+races the old call_soon hook was exposed to: a same-entry reload (the entry
+reclaims ownership in its own setup before the task looks) and HA shutdown
+(no task is scheduled while hass is stopping).
 """
+
 from __future__ import annotations
 
-from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.config_entries import ConfigEntryState
+from homeassistant.core import HomeAssistant, callback
 
-from .const import (
-    DOMAIN,
-    HASS_DATA_BUTTON_CREATED,
-    HASS_DATA_LANGUAGE_ENTITY,
-    HASS_DATA_SELECT_CREATED,
-    HASS_DATA_SHARED_OWNER,
-    HASS_DATA_TEXT_CREATED,
-)
+from .const import DOMAIN, HASS_DATA_SHARED_OWNER, LOGGER
 
 
-def _forwarded_key(entry_id: str) -> str:
-    """Return the per-entry hass.data flag key recording shared-platform setup."""
-    return f"shared_platforms_setup_{entry_id}"
-
-
-def has_forwarded_shared(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Return True if this entry has already forwarded the shared platforms."""
-    return hass.data.get(DOMAIN, {}).get(_forwarded_key(entry.entry_id), False)
-
-
-def mark_shared_forwarded(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """Record that this entry forwarded the shared platforms."""
-    hass.data[DOMAIN][_forwarded_key(entry.entry_id)] = True
-
-
-def clear_shared_forwarded(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """Forget that this entry forwarded the shared platforms (after unload)."""
-    hass.data[DOMAIN].pop(_forwarded_key(entry.entry_id), None)
-
-
-def is_shared_owner(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Return True if this entry is the one that created the shared entities."""
-    return hass.data.get(DOMAIN, {}).get(HASS_DATA_SHARED_OWNER) == entry.entry_id
-
-
-def release_shared_ownership(hass: HomeAssistant) -> None:
-    """Clear the singleton-creation flags so a survivor recreates the entities.
-
-    Called when the owning entry is unloaded while others remain. Clearing the
-    *_CREATED flags and the owner pointer lets the next entry to load (the
-    survivor reloaded below) take ownership and recreate the shared entities
-    under its own enabled config entry.
-    """
-    data = hass.data.get(DOMAIN, {})
-    for key in (
-        HASS_DATA_SELECT_CREATED,
-        HASS_DATA_TEXT_CREATED,
-        HASS_DATA_BUTTON_CREATED,
-        HASS_DATA_LANGUAGE_ENTITY,
-        HASS_DATA_SHARED_OWNER,
-    ):
-        data.pop(key, None)
-
-
-def schedule_rehome_to_survivor(
-    hass: HomeAssistant, entry: ConfigEntry, remaining: list[ConfigEntry]
-) -> None:
-    """Reload one surviving entry so it re-homes the shared entities.
-
-    Only one reload is needed: the survivors' singleton guards stop the others
-    from duplicating the entities. The reload is deferred via call_soon so it
-    runs after the current unload fully completes.
-    """
-    survivors = [e for e in remaining if e.entry_id != entry.entry_id]
-    if not survivors:
+@callback
+def async_schedule_rehome(hass: HomeAssistant) -> None:
+    """Schedule a re-home check after the current unload completes."""
+    if hass.is_stopping:
         return
-    new_owner_id = survivors[0].entry_id
-    hass.loop.call_soon(
-        lambda: hass.async_create_task(
-            hass.config_entries.async_reload(new_owner_id)
-        )
+    hass.async_create_task(
+        _async_rehome_to_survivor(hass),
+        name=f"{DOMAIN} re-home shared entities",
+        eager_start=False,
     )
+
+
+async def _async_rehome_to_survivor(hass: HomeAssistant) -> None:
+    """Reload one loaded survivor so it recreates the shared entities.
+
+    A no-op when ownership has already been re-claimed (the owner was merely
+    reloaded, e.g. after an options save) or when the integration has been
+    torn down entirely.
+    """
+    data = hass.data.get(DOMAIN)
+    if data is None or data.get(HASS_DATA_SHARED_OWNER) is not None:
+        return
+    for entry in hass.config_entries.async_entries(DOMAIN):
+        if entry.state is ConfigEntryState.LOADED:
+            LOGGER.debug(
+                "Re-homing shared entities to surviving entry %s", entry.entry_id
+            )
+            await hass.config_entries.async_reload(entry.entry_id)
+            return

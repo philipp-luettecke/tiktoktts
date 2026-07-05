@@ -1,46 +1,23 @@
 """Button entity for TikTok TTS - the Speak button.
 
-Singleton pattern
------------------
-One shared button entity is created for the whole integration:
+One shared button entity (button.tiktoktts_speak) exists for the whole
+integration; the owning config entry forwards this platform (see
+__init__.py). When pressed it reads the current state of the other shared
+entities - text.tiktoktts_message (state), select.tiktoktts_voice and
+select.tiktoktts_device (both via their 'code' attribute) - and calls
+tts.speak directly in Python, so no templates or scripts are needed.
 
-  button.tiktoktts_speak
+TTS entity selection: the target is derived from loaded config entries
+(ConfigEntryState.LOADED) rather than hass.states, which can hold stale
+entries for previously removed config entries. Proxy mode is preferred over
+direct mode when both are configured.
 
-When pressed it reads the current state of the other shared entities:
-  - text.tiktoktts_message    - the message to speak
-  - select.tiktoktts_voice    - the voice API code (via 'code' attribute)
-  - select.tiktoktts_device   - the media_player entity_id (via 'code' attribute)
-
-It then calls tts.speak directly in Python - no templates, no scripts,
-no YAML gymnastics required. The dashboard card becomes simply:
-
-  type: entities
-  title: TikTok TTS
-  entities:
-    - select.tiktoktts_language
-    - select.tiktoktts_voice
-    - text.tiktoktts_message
-    - select.tiktoktts_device
-    - button.tiktoktts_speak
-
-TTS entity selection
---------------------
-The button picks the correct TTS entity (proxy or direct) by inspecting
-loaded config entries via ConfigEntryState.LOADED rather than checking
-hass.states. This avoids a bug where stale state machine entries from a
-previously removed config entry would cause the button to target a TTS
-entity that no longer exists. Proxy mode is preferred over direct mode
-when both are configured.
-
-Random voice support
---------------------
-When the selected voice code is RANDOM_VOICE_CODE ("random"), the button:
-  1. Sets cache=False so HA does not serve stale audio from the file cache.
-  2. Passes a unique _random_seed value (UUID) in the tts.speak options dict.
-     HA includes all supported_options keys in the TTS cache key hash, so a
-     unique seed guarantees a cache miss and forces async_get_tts_audio in
-     tts.py to be called on every press regardless of message text.
+Random voice: when the selected voice code is RANDOM_VOICE_CODE, caching is
+disabled and a unique _random_seed is passed in the options dict. HA hashes
+all supported_options keys into the TTS cache key, so the unique seed forces
+a cache miss and a fresh random voice on every press.
 """
+
 from __future__ import annotations
 
 from uuid import uuid4
@@ -63,7 +40,6 @@ from .const import (
     ENTITY_ID_TTS_PROXY,
     ENTITY_ID_VOICE,
     ENTITY_NAME_SPEAK,
-    HASS_DATA_BUTTON_CREATED,
     LOGGER,
     PLACEHOLDER_LOADING,
     RANDOM_SEED_KEY,
@@ -84,18 +60,7 @@ async def async_setup_entry(
     config_entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Create the shared Speak button - only on the first config entry load."""
-    if DOMAIN not in hass.data:
-        hass.data[DOMAIN] = {}
-
-    if hass.data[DOMAIN].get(HASS_DATA_BUTTON_CREATED):
-        LOGGER.debug(
-            "Shared button entity already exists - skipping for entry %s",
-            config_entry.entry_id,
-        )
-        return
-
-    hass.data[DOMAIN][HASS_DATA_BUTTON_CREATED] = True
+    """Create the shared Speak button for the owning config entry."""
     async_add_entities([SpeakButtonEntity()])
     LOGGER.debug("Shared button entity created for entry %s", config_entry.entry_id)
 
@@ -135,8 +100,8 @@ class SpeakButtonEntity(ButtonEntity):
         # is empty (HA text entity rejects truly empty strings), so we must
         # strip before checking to avoid speaking a silent space.
         message = self._get_state(ENTITY_ID_MESSAGE).strip()
-        voice   = self._get_code(ENTITY_ID_VOICE)
-        device  = self._get_code(ENTITY_ID_DEVICE)
+        voice = self._get_code(ENTITY_ID_VOICE)
+        device = self._get_code(ENTITY_ID_DEVICE)
 
         if not message:
             LOGGER.warning(
@@ -146,9 +111,7 @@ class SpeakButtonEntity(ButtonEntity):
             return
 
         if not voice or voice == PLACEHOLDER_LOADING:
-            LOGGER.warning(
-                "TikTokTTS Speak button pressed but no voice is selected."
-            )
+            LOGGER.warning("TikTokTTS Speak button pressed but no voice is selected.")
             return
 
         if not device or device == PLACEHOLDER_LOADING:
@@ -172,7 +135,10 @@ class SpeakButtonEntity(ButtonEntity):
 
         LOGGER.debug(
             "Speak button: entity=%s device=%s voice=%s cache=%s message=%s",
-            tts_entity, device, voice, use_cache,
+            tts_entity,
+            device,
+            voice,
+            use_cache,
             message[:50] + "..." if len(message) > 50 else message,
         )
 
@@ -180,9 +146,9 @@ class SpeakButtonEntity(ButtonEntity):
             domain=TTS_SERVICE_DOMAIN,
             service=TTS_SERVICE_SPEAK,
             service_data={
-                TTS_SERVICE_FIELD_PLAYER:  device,
+                TTS_SERVICE_FIELD_PLAYER: device,
                 TTS_SERVICE_FIELD_MESSAGE: message,
-                TTS_SERVICE_FIELD_CACHE:   use_cache,
+                TTS_SERVICE_FIELD_CACHE: use_cache,
                 TTS_SERVICE_FIELD_OPTIONS: options_dict,
             },
             target={"entity_id": tts_entity},
@@ -217,27 +183,25 @@ class SpeakButtonEntity(ButtonEntity):
         if not code:
             LOGGER.warning(
                 "TikTokTTS: entity %s has no 'code' attribute - "
-                "it may not have finished loading yet.", entity_id
+                "it may not have finished loading yet.",
+                entity_id,
             )
         return code
 
     def _pick_tts_entity(self) -> str | None:
         """Pick the TTS entity to use - proxy preferred over direct.
 
-        Checks loaded config entries only via ConfigEntryState.LOADED.
-        Does not rely on hass.states which may contain stale entries from
-        previously removed config entries, causing the button to target a
-        TTS entity that no longer exists.
+        Checks loaded config entries only (ConfigEntryState.LOADED) rather
+        than hass.states, which may contain stale entries from previously
+        removed config entries.
         """
-        entries = self.hass.config_entries.async_entries(DOMAIN)
-        loaded = [e for e in entries if e.state == ConfigEntryState.LOADED]
-
-        for entry in loaded:
-            if entry.data.get(CONF_API_MODE, API_MODE_PROXY) == API_MODE_PROXY:
-                return ENTITY_ID_TTS_PROXY
-
-        for entry in loaded:
-            if entry.data.get(CONF_API_MODE) == API_MODE_DIRECT:
-                return ENTITY_ID_TTS_DIRECT
-
+        modes = {
+            entry.data.get(CONF_API_MODE, API_MODE_PROXY)
+            for entry in self.hass.config_entries.async_entries(DOMAIN)
+            if entry.state == ConfigEntryState.LOADED
+        }
+        if API_MODE_PROXY in modes:
+            return ENTITY_ID_TTS_PROXY
+        if API_MODE_DIRECT in modes:
+            return ENTITY_ID_TTS_DIRECT
         return None

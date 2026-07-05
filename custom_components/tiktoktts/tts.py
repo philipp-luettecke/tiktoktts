@@ -60,17 +60,18 @@ Community TTS proxy:  Weilbyte (https://github.com/Weilbyte/tiktok-tts)
 Voice list reference: oscie57 (https://github.com/oscie57/tiktok-voice)
 Fork author:          Steven Fox / sfox38 (https://github.com/sfox38/tiktoktts)
 """
+
 from __future__ import annotations
 
 import asyncio
 import base64
 import binascii
+from collections.abc import Mapping
 import json
 import random
 from typing import Any
 
 import aiohttp
-
 from homeassistant.components.tts import TextToSpeechEntity, Voice
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
@@ -109,6 +110,7 @@ from .const import (
     DIRECT_API_STATUS_INVALID_SESSION,
     DIRECT_API_STATUS_OK,
     DIRECT_API_USER_AGENT,
+    DIRECT_TOTAL_TIMEOUT,
     DOMAIN,
     FALLBACK_MAX_RETRIES,
     FALLBACK_TIMEOUT,
@@ -182,19 +184,27 @@ class TikTokTTSEntity(TextToSpeechEntity):
         # Lock the entity_id explicitly so it is always derived from the domain
         # and mode suffix - not from the friendly name. This means renaming the
         # friendly name in future will never silently break existing automations.
-        mode_suffix = API_MODE_DIRECT if config_entry.data.get(CONF_API_MODE) == API_MODE_DIRECT else API_MODE_PROXY
+        mode_suffix = (
+            API_MODE_DIRECT
+            if config_entry.data.get(CONF_API_MODE) == API_MODE_DIRECT
+            else API_MODE_PROXY
+        )
         self.entity_id = f"tts.{DOMAIN}_{mode_suffix}"
+        # Direct mode: endpoint that most recently served a chunk successfully.
+        # Tried first on subsequent chunks/calls so a dead configured endpoint
+        # is not re-probed (with full retries) for every chunk of a message.
+        self._preferred_endpoint: str | None = None
 
     @property
     def name(self) -> str:
         """Return the friendly (display) name shown in the HA UI.
 
-        The friendly name and entity ID are intentionally decoupled here:
+        The friendly name and entity ID are intentionally decoupled:
           - Friendly name: "TikTokTTS Direct" / "TikTokTTS Proxy"  (shown in UI)
-          - Entity ID:      tts.tiktoktts_direct / tts.tiktoktts_proxy  (locked below)
+          - Entity ID:      tts.tiktoktts_direct / tts.tiktoktts_proxy
 
-        The entity_id is set explicitly in __init__ using a slugified version
-        of the mode suffix, so HA never re-derives it from this display name.
+        The entity_id is fixed in __init__ from the domain and mode suffix,
+        so HA never re-derives it from this display name.
         """
         if self._api_mode == API_MODE_DIRECT:
             return "TikTokTTS Direct"
@@ -205,8 +215,8 @@ class TikTokTTSEntity(TextToSpeechEntity):
     # ------------------------------------------------------------------
 
     @property
-    def _data(self) -> dict:
-        """Return the live config entry data dict.
+    def _data(self) -> Mapping[str, Any]:
+        """Return the live config entry data mapping.
 
         All other config properties below delegate to this one, so there
         is a single point of access to entry.data throughout this class.
@@ -352,13 +362,16 @@ class TikTokTTSEntity(TextToSpeechEntity):
                 voice = lang_voices[0]
                 LOGGER.debug(
                     "Default voice '%s' is not in language '%s'; using '%s' instead",
-                    self._voice, language, voice,
+                    self._voice,
+                    language,
+                    voice,
                 )
             else:
                 voice = self._voice or DEFAULT_VOICE
                 LOGGER.warning(
                     "No voices found for language '%s'; falling back to '%s'",
-                    language, voice,
+                    language,
+                    voice,
                 )
         elif voice not in ALL_VOICES:
             # Unknown voice IDs are passed through so users can test
@@ -378,9 +391,7 @@ class TikTokTTSEntity(TextToSpeechEntity):
     # Proxy API implementation
     # ------------------------------------------------------------------
 
-    async def _get_audio_proxy(
-        self, message: str, voice: str
-    ) -> tuple[str, bytes]:
+    async def _get_audio_proxy(self, message: str, voice: str) -> tuple[str, bytes]:
         """Fetch TTS audio from the community proxy endpoint.
 
         The proxy accepts the full message text regardless of length - it handles
@@ -410,7 +421,9 @@ class TikTokTTSEntity(TextToSpeechEntity):
                             body = await resp.text()
                             LOGGER.error(
                                 "Proxy API returned HTTP %d from %s: %s",
-                                resp.status, self._endpoint, body,
+                                resp.status,
+                                self._endpoint,
+                                body,
                             )
                             raise HomeAssistantError(
                                 f"TikTok TTS proxy returned HTTP {resp.status}"
@@ -429,7 +442,8 @@ class TikTokTTSEntity(TextToSpeechEntity):
                     LOGGER.error(
                         "Proxy API response is missing the '%s' field. "
                         "The proxy may have returned an error body: %s",
-                        PROXY_API_FIELD_DATA, payload,
+                        PROXY_API_FIELD_DATA,
+                        payload,
                     )
                     raise HomeAssistantError(
                         "TikTok TTS proxy response did not contain audio data"
@@ -446,12 +460,15 @@ class TikTokTTSEntity(TextToSpeechEntity):
             except asyncio.TimeoutError:
                 LOGGER.warning(
                     "Proxy API timed out (attempt %d of %d)",
-                    attempt + 1, REQUEST_MAX_RETRIES + 1,
+                    attempt + 1,
+                    REQUEST_MAX_RETRIES + 1,
                 )
             except aiohttp.ClientError as exc:
                 LOGGER.warning(
                     "Proxy API connection error (attempt %d of %d): %s",
-                    attempt + 1, REQUEST_MAX_RETRIES + 1, exc,
+                    attempt + 1,
+                    REQUEST_MAX_RETRIES + 1,
+                    exc,
                 )
 
             if attempt < REQUEST_MAX_RETRIES:
@@ -461,7 +478,8 @@ class TikTokTTSEntity(TextToSpeechEntity):
             "Proxy API failed after %d attempts against endpoint '%s'. "
             "Check that the endpoint is reachable, or switch to a different "
             "endpoint via Settings -> Devices & Services -> TikTok TTS -> Configure.",
-            REQUEST_MAX_RETRIES + 1, self._endpoint,
+            REQUEST_MAX_RETRIES + 1,
+            self._endpoint,
         )
         raise HomeAssistantError(
             f"TikTok TTS proxy unreachable after {REQUEST_MAX_RETRIES + 1} attempts "
@@ -472,9 +490,7 @@ class TikTokTTSEntity(TextToSpeechEntity):
     # Direct TikTok API implementation
     # ------------------------------------------------------------------
 
-    async def _get_audio_direct(
-        self, message: str, voice: str
-    ) -> tuple[str, bytes]:
+    async def _get_audio_direct(self, message: str, voice: str) -> tuple[str, bytes]:
         """Fetch TTS audio by calling TikTok's internal API directly.
 
         Because TikTok enforces a per-request character limit of DIRECT_API_CHUNK_SIZE,
@@ -484,17 +500,34 @@ class TikTokTTSEntity(TextToSpeechEntity):
 
         If any individual chunk fails (across all retry attempts and all fallback
         endpoints), raises HomeAssistantError to avoid returning truncated audio.
+        The whole message is bounded by DIRECT_TOTAL_TIMEOUT so a long message
+        during an outage cannot stall the tts.speak call for many minutes while
+        every chunk walks the full endpoint list.
         """
         chunks = _split_text(message, DIRECT_API_CHUNK_SIZE)
         LOGGER.debug(
             "Direct API: message split into %d chunk(s) for voice '%s'",
-            len(chunks), voice,
+            len(chunks),
+            voice,
         )
 
         audio_parts: list[bytes] = []
-        for i, chunk in enumerate(chunks):
-            part = await self._fetch_direct_chunk(chunk, voice, chunk_index=i)
-            audio_parts.append(part)
+        try:
+            async with asyncio.timeout(DIRECT_TOTAL_TIMEOUT):
+                for i, chunk in enumerate(chunks):
+                    part = await self._fetch_direct_chunk(chunk, voice, chunk_index=i)
+                    audio_parts.append(part)
+        except TimeoutError:
+            LOGGER.error(
+                "Direct API: message did not complete within %d s "
+                "(%d of %d chunks fetched) - giving up",
+                DIRECT_TOTAL_TIMEOUT,
+                len(audio_parts),
+                len(chunks),
+            )
+            raise HomeAssistantError(
+                f"TikTok TTS direct API timed out after {DIRECT_TOTAL_TIMEOUT} s"
+            ) from None
 
         return AUDIO_FORMAT, b"".join(audio_parts)
 
@@ -503,13 +536,15 @@ class TikTokTTSEntity(TextToSpeechEntity):
     ) -> bytes:
         """Fetch a single text chunk from the TikTok direct API.
 
-        Tries the user's configured endpoint first (REQUEST_MAX_RETRIES attempts,
-        REQUEST_TIMEOUT seconds each). If it fails (HTTP error, timeout, or a
-        non-zero TikTok status_code), automatically moves to the next endpoint in
-        DIRECT_API_ENDPOINTS with a single shorter attempt (FALLBACK_MAX_RETRIES,
-        FALLBACK_TIMEOUT). This makes the integration resilient to individual regional
-        endpoints going down while not wasting time on exhaustive retries against
-        fallbacks that are just alternatives, not authoritative destinations.
+        Tries the last known-good endpoint first (falling back to the user's
+        configured endpoint when none is known) with the full retry budget
+        (REQUEST_MAX_RETRIES attempts, REQUEST_TIMEOUT seconds each). If it
+        fails (HTTP error, timeout, or a non-zero TikTok status_code), moves
+        through the remaining endpoints in DIRECT_API_ENDPOINTS with a single
+        shorter attempt each (FALLBACK_MAX_RETRIES, FALLBACK_TIMEOUT). The
+        endpoint that serves a chunk successfully is remembered, so later
+        chunks (and later calls) do not re-probe a dead configured endpoint
+        with full retries every time.
 
         The one exception is status_code 4 (invalid/expired session_id) - in
         that case we give up immediately across all endpoints, since the session_id
@@ -534,11 +569,16 @@ class TikTokTTSEntity(TextToSpeechEntity):
             DIRECT_API_PARAM_AID: DIRECT_API_AID_VALUE,
         }
 
-        # Build the ordered endpoint list: configured endpoint first so the
-        # user's preference is always tried before the built-in fallbacks.
-        configured = self._endpoint
-        fallbacks = [ep for ep in DIRECT_API_ENDPOINTS if ep != configured]
-        endpoint_configs = [(configured, REQUEST_MAX_RETRIES, REQUEST_TIMEOUT)] + [
+        # Build the ordered endpoint list: last known-good endpoint (or the
+        # configured one) first with the full retry budget, then the
+        # configured endpoint and remaining fallbacks with one short attempt.
+        primary = self._preferred_endpoint or self._endpoint
+        fallbacks = [
+            ep
+            for ep in dict.fromkeys([self._endpoint, *DIRECT_API_ENDPOINTS])
+            if ep != primary
+        ]
+        endpoint_configs = [(primary, REQUEST_MAX_RETRIES, REQUEST_TIMEOUT)] + [
             (ep, FALLBACK_MAX_RETRIES, FALLBACK_TIMEOUT) for ep in fallbacks
         ]
 
@@ -554,7 +594,10 @@ class TikTokTTSEntity(TextToSpeechEntity):
                             if resp.status != 200:
                                 LOGGER.warning(
                                     "Direct API: HTTP %d from %s (chunk %d, attempt %d)",
-                                    resp.status, endpoint, chunk_index, attempt + 1,
+                                    resp.status,
+                                    endpoint,
+                                    chunk_index,
+                                    attempt + 1,
                                 )
                                 break  # Non-200 from this endpoint - skip to next one
 
@@ -563,27 +606,31 @@ class TikTokTTSEntity(TextToSpeechEntity):
                         status_code = payload.get(DIRECT_API_FIELD_STATUS_CODE)
 
                         if status_code == DIRECT_API_STATUS_OK:
-                            vstr = payload.get(
-                                DIRECT_API_FIELD_DATA, {}
-                            ).get(DIRECT_API_FIELD_AUDIO, "")
+                            vstr = payload.get(DIRECT_API_FIELD_DATA, {}).get(
+                                DIRECT_API_FIELD_AUDIO, ""
+                            )
                             if not vstr:
                                 LOGGER.error(
                                     "Direct API returned status OK but empty audio "
-                                    "data for chunk %d", chunk_index,
+                                    "data for chunk %d",
+                                    chunk_index,
                                 )
                                 raise HomeAssistantError(
                                     f"TikTok TTS direct API returned empty audio for chunk {chunk_index}"
                                 )
                             try:
-                                return base64.b64decode(vstr)
+                                audio = base64.b64decode(vstr)
                             except binascii.Error as exc:
                                 LOGGER.error(
                                     "Direct API: base64 decode failed for chunk %d: %s",
-                                    chunk_index, exc,
+                                    chunk_index,
+                                    exc,
                                 )
                                 raise HomeAssistantError(
                                     f"TikTok TTS direct API returned corrupt audio for chunk {chunk_index}"
                                 ) from exc
+                            self._preferred_endpoint = endpoint
+                            return audio
 
                         # Non-zero TikTok status codes indicate API-level errors
                         status_msg = payload.get(DIRECT_API_FIELD_STATUS_MSG, "unknown")
@@ -614,19 +661,27 @@ class TikTokTTSEntity(TextToSpeechEntity):
                         LOGGER.warning(
                             "Direct API: TikTok returned status %d ('%s') "
                             "for chunk %d at endpoint %s - trying next endpoint",
-                            status_code, status_msg, chunk_index, endpoint,
+                            status_code,
+                            status_msg,
+                            chunk_index,
+                            endpoint,
                         )
                         break  # Non-zero status from this endpoint - try the next one
 
                 except asyncio.TimeoutError:
                     LOGGER.warning(
                         "Direct API: request timed out at %s (chunk %d, attempt %d)",
-                        endpoint, chunk_index, attempt + 1,
+                        endpoint,
+                        chunk_index,
+                        attempt + 1,
                     )
                 except aiohttp.ClientError as exc:
                     LOGGER.warning(
                         "Direct API: connection error at %s (chunk %d, attempt %d): %s",
-                        endpoint, chunk_index, attempt + 1, exc,
+                        endpoint,
+                        chunk_index,
+                        attempt + 1,
+                        exc,
                     )
 
                 if attempt < max_retries:
@@ -636,7 +691,8 @@ class TikTokTTSEntity(TextToSpeechEntity):
             "Direct API: chunk %d failed across all %d known endpoints. "
             "TikTok may have changed their internal API, or your session_id "
             "may be invalid. Check the HA logs for per-endpoint error details.",
-            chunk_index, len(endpoint_configs),
+            chunk_index,
+            len(endpoint_configs),
         )
         raise HomeAssistantError(
             f"TikTok TTS direct API failed for chunk {chunk_index} "
@@ -647,6 +703,7 @@ class TikTokTTSEntity(TextToSpeechEntity):
 # ------------------------------------------------------------------
 # Text chunking helper
 # ------------------------------------------------------------------
+
 
 def _split_text(text: str, chunk_size: int) -> list[str]:
     """Split text into chunks of at most chunk_size characters.
@@ -666,8 +723,9 @@ def _split_text(text: str, chunk_size: int) -> list[str]:
          within the window (e.g. a very long URL or foreign-language text without
          spaces). Splits at exactly chunk_size characters.
 
-    Returns a list of one or more non-empty strings. If the input fits within
-    chunk_size, the list contains only the original text unchanged.
+    Returns a list of chunks. Input that fits within chunk_size is returned
+    unchanged as a single-element list (so empty input yields [""]); text
+    that needed splitting always produces non-empty chunks.
     """
     if len(text) <= chunk_size:
         return [text]

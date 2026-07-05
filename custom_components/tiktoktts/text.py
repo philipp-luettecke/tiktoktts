@@ -1,22 +1,15 @@
 """Text entity for TikTok TTS - shared message input field.
 
-Singleton pattern
------------------
-One shared text entity is created for the whole integration regardless of
-how many config entries exist (proxy, direct, or both):
+One shared text entity (text.tiktoktts_message) exists for the whole
+integration; the owning config entry forwards this platform (see
+__init__.py). Readable in dashboard templates via:
 
-  text.tiktoktts_message
-
-Created on the first config entry load and skipped for any subsequent ones.
-A flag in hass.data[DOMAIN] tracks whether it has been created.
-
-Usage in dashboard templates
------------------------------
   message: "{{ states('text.tiktoktts_message') }}"
 """
+
 from __future__ import annotations
 
-from homeassistant.components.text import TextEntity, TextMode
+from homeassistant.components.text import TextEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import HomeAssistant
@@ -24,10 +17,8 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
 
 from .const import (
-    DOMAIN,
     ENTITY_ID_MESSAGE,
     ENTITY_NAME_MESSAGE,
-    HASS_DATA_TEXT_CREATED,
     LOGGER,
     UNIQUE_ID_MESSAGE,
 )
@@ -38,18 +29,7 @@ async def async_setup_entry(
     config_entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Create the shared message text entity - only on the first config entry load."""
-    if DOMAIN not in hass.data:
-        hass.data[DOMAIN] = {}
-
-    if hass.data[DOMAIN].get(HASS_DATA_TEXT_CREATED):
-        LOGGER.debug(
-            "Shared text entity already exists - skipping for entry %s",
-            config_entry.entry_id,
-        )
-        return
-
-    hass.data[DOMAIN][HASS_DATA_TEXT_CREATED] = True
+    """Create the shared message text entity for the owning config entry."""
     async_add_entities([MessageTextEntity()])
     LOGGER.debug("Shared text entity created for entry %s", config_entry.entry_id)
 
@@ -66,8 +46,6 @@ class MessageTextEntity(TextEntity, RestoreEntity):
     _attr_has_entity_name = False
     _attr_should_poll = False
     _attr_icon = "mdi:message-text"
-    _attr_mode = TextMode.TEXT
-    _attr_native_min = 0
     _attr_native_max = 255
     _attr_unique_id = UNIQUE_ID_MESSAGE
     _attr_name = ENTITY_NAME_MESSAGE
@@ -81,11 +59,16 @@ class MessageTextEntity(TextEntity, RestoreEntity):
         """Restore the last message text from the HA state database."""
         await super().async_added_to_hass()
         last_state = await self.async_get_last_state()
-        if last_state and last_state.state not in (None, STATE_UNKNOWN, STATE_UNAVAILABLE):
+        if last_state and last_state.state not in (
+            None,
+            STATE_UNKNOWN,
+            STATE_UNAVAILABLE,
+        ):
             self._attr_native_value = last_state.state
             LOGGER.debug(
                 "Message restored: %s",
-                last_state.state[:50] + "..." if len(last_state.state) > 50
+                last_state.state[:50] + "..."
+                if len(last_state.state) > 50
                 else last_state.state,
             )
 
