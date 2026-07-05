@@ -518,8 +518,23 @@ Go to **Settings -> System -> Logs** and filter for `tiktoktts` to find detailed
 
 ## Changelog
 
+### v1.2.5
+- **Fix:** Selecting the `(loading...)` placeholder in the device dropdown (shown when no media players are available yet) no longer crashes the `select.select_option` service call with an `IndexError`
+- **Fix:** Calling `tiktoktts.set_random_voices` after the last config entry was unloaded (e.g. the entry is disabled) no longer crashes with a `KeyError`; the pool is still validated and persisted
+- **Refactor:** The shared select/text/button entities are now forwarded by a single owning config entry instead of every entry, deleting the per-platform singleton guards and per-entry bookkeeping flags. Re-homing the shared entities to a surviving entry (when the owner is unloaded while another entry remains) now runs as a tracked Home Assistant task that is skipped during shutdown and no-ops when the owner was merely reloaded - replacing a raw `call_soon` hook that could race HA shutdown
+- **Refactor:** The language and voice dropdowns no longer hold direct references to each other. They coordinate through dispatcher signals plus one `hass.data` key, which removes the startup readiness event, its 10-second timeout, and the entity object previously stashed in `hass.data` for the service handler. Behaviour (restore on restart, default-voice preservation, random-voice handling) is unchanged and covered by tests
+- **Perf:** Direct API mode now remembers the endpoint that last served a request and tries it first, so when the configured endpoint is down, a multi-chunk message no longer re-probes it (with full retries) for every chunk
+- **Perf:** Direct API mode now has an overall per-message deadline (120 s) so a long message during an outage cannot stall a `tts.speak` call for many minutes while every chunk walks the whole endpoint fallback list
+- **Perf:** The device dropdown's media-player discovery now filters state events inside Home Assistant's event dispatch (`event_filter`), so routine attribute updates from active players never wake the integration at all
+- **Perf:** Static assets (card JS, icon) are now served with cache headers; the card URL already carries a `?v=<version>` cache-buster so upgrades still load the new card immediately
+- **Security:** The TikTok `session_id` field in the setup and options forms is now a masked password input instead of plain text
+- **Fix:** Connection-test responses in the config flow are now properly released via context managers, and unexpected connection-test failures are logged with a traceback instead of being silently reported as "unknown error"
+- **Meta:** `manifest.json` now declares `integration_type: service` and `iot_class: cloud_push` (matching core TTS integrations)
+- **Tests:** 133 tests (up from 118); new coverage for the two crash fixes above, endpoint memoization, the per-message deadline, device selection and restore-wait behaviour, Speak-button guard paths, the options-save reload cycle, and config-flow unknown-error branches. The frontend tests now read the version from `manifest.json` instead of hardcoding it, so version bumps no longer break the suite
+- **CI:** Added `ruff check` and `ruff format --check` to the test workflow; the codebase is now Ruff-formatted
+
 ### v1.2.4
-- **Fix:** Dashboard card no longer crashes with `the name "tiktoktts-card" has already been used with this registry` after upgrading. Older versions registered the card as a Lovelace dashboard resource; the current version registers it via the frontend module API, so on upgrade both could load the card and define the element twice. The card now guards against double-registration. If you upgraded, you can also remove the leftover `/tiktoktts/tiktoktts-card.js` entry under Settings → Dashboards → Resources.
+- **Fix:** Dashboard card no longer crashes with `the name "tiktoktts-card" has already been used with this registry` after upgrading. Older versions registered the card as a Lovelace dashboard resource; the current version registers it via the frontend module API, so on upgrade both could load the card and define the element twice. The card now guards against double-registration. If you upgraded, you can also remove the leftover `/tiktoktts/tiktoktts-card.js` entry under Settings -> Dashboards -> Resources.
 
 ### v1.2.3
 - **Fix:** Configured default voice is now preserved on a fresh start - the voice dropdown no longer reset to the first voice of the language (alphabetically) when there was no restored state to apply
