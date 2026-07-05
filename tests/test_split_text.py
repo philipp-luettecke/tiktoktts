@@ -4,6 +4,7 @@ Direct mode must split long messages on natural boundaries (sentence, then
 word, then a hard cut) without ever exceeding the per-request character
 limit or producing empty chunks.
 """
+
 from __future__ import annotations
 
 import pytest

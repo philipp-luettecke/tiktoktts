@@ -4,17 +4,19 @@ The entity is exercised directly (constructed with a MockConfigEntry and the
 test ``hass``) rather than through full platform setup, so each network path,
 retry, and fallback can be driven precisely with ``aioclient_mock``.
 """
+
 from __future__ import annotations
 
+import asyncio
 import base64
 from unittest.mock import patch
 
 import aiohttp
-import pytest
-
 from homeassistant.components.tts import Voice
 from homeassistant.exceptions import HomeAssistantError
 import homeassistant.helpers.issue_registry as ir
+import pytest
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.tiktoktts import tts
 from custom_components.tiktoktts.const import (
@@ -39,7 +41,6 @@ from custom_components.tiktoktts.const import (
     VOICES_BY_LANGUAGE,
 )
 from custom_components.tiktoktts.tts import TikTokTTSEntity
-from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 AUDIO = b"\xff\xfb\x90fake-mp3-bytes"
 B64 = base64.b64encode(AUDIO).decode()
@@ -85,6 +86,7 @@ def _direct_entity(hass, **overrides) -> TikTokTTSEntity:
 # ---------------------------------------------------------------------------
 # Static / property behaviour
 # ---------------------------------------------------------------------------
+
 
 def test_entity_ids_and_names(hass) -> None:
     proxy = _proxy_entity(hass)
@@ -139,10 +141,13 @@ def test_get_supported_voices_unknown_language(hass) -> None:
 # Proxy mode
 # ---------------------------------------------------------------------------
 
+
 async def test_proxy_success(hass, aioclient_mock) -> None:
     aioclient_mock.post(PROXY_URL, json={"data": B64})
     ent = _proxy_entity(hass)
-    fmt, audio = await ent.async_get_tts_audio("hello", "en_us", {CONF_VOICE: "en_us_001"})
+    fmt, audio = await ent.async_get_tts_audio(
+        "hello", "en_us", {CONF_VOICE: "en_us_001"}
+    )
     assert fmt == "mp3"
     assert audio == AUDIO
     assert aioclient_mock.mock_calls[0][2] == {"text": "hello", "voice": "en_us_001"}
@@ -198,6 +203,7 @@ async def test_proxy_timeout_then_gives_up(hass, aioclient_mock) -> None:
 # Voice resolution
 # ---------------------------------------------------------------------------
 
+
 async def test_explicit_known_voice_passed_through(hass, aioclient_mock) -> None:
     aioclient_mock.post(PROXY_URL, json={"data": B64})
     ent = _proxy_entity(hass)
@@ -212,14 +218,18 @@ async def test_unknown_voice_passed_through(hass, aioclient_mock) -> None:
     assert aioclient_mock.mock_calls[0][2]["voice"] == "made_up_voice"
 
 
-async def test_default_voice_kept_when_in_requested_language(hass, aioclient_mock) -> None:
+async def test_default_voice_kept_when_in_requested_language(
+    hass, aioclient_mock
+) -> None:
     aioclient_mock.post(PROXY_URL, json={"data": B64})
     ent = _proxy_entity(hass)  # default en_us_001
     await ent.async_get_tts_audio("hi", "en_us", {CONF_VOICE: DEFAULT_VOICE})
     assert aioclient_mock.mock_calls[0][2]["voice"] == DEFAULT_VOICE
 
 
-async def test_default_voice_replaced_when_not_in_language(hass, aioclient_mock) -> None:
+async def test_default_voice_replaced_when_not_in_language(
+    hass, aioclient_mock
+) -> None:
     aioclient_mock.post(PROXY_URL, json={"data": B64})
     ent = _proxy_entity(hass)  # default en_us_001 (en_us)
     # No explicit voice + a different language -> first voice of that language.
@@ -227,12 +237,24 @@ async def test_default_voice_replaced_when_not_in_language(hass, aioclient_mock)
     assert aioclient_mock.mock_calls[0][2]["voice"] == VOICES_BY_LANGUAGE["fr"][0]
 
 
+async def test_unknown_language_falls_back_to_configured_voice(
+    hass, aioclient_mock
+) -> None:
+    """A language with no voice table entry keeps the configured default voice."""
+    aioclient_mock.post(PROXY_URL, json={"data": B64})
+    ent = _proxy_entity(hass)
+    await ent.async_get_tts_audio("hi", "klingon", {})
+    assert aioclient_mock.mock_calls[0][2]["voice"] == DEFAULT_VOICE
+
+
 async def test_random_voice_picks_from_pool(hass, aioclient_mock) -> None:
     aioclient_mock.post(PROXY_URL, json={"data": B64})
     hass.data.setdefault(DOMAIN, {})[HASS_DATA_RANDOM_LANGS] = ["fr"]
     ent = _proxy_entity(hass)
     with patch.object(tts.random, "choice", return_value="fr_002") as choice:
-        await ent.async_get_tts_audio("hi", "en_us", {CONF_VOICE: "random", RANDOM_SEED_KEY: "x"})
+        await ent.async_get_tts_audio(
+            "hi", "en_us", {CONF_VOICE: "random", RANDOM_SEED_KEY: "x"}
+        )
     # Pool was the fr voices; chosen voice is what was sent.
     assert set(choice.call_args[0][0]) == set(VOICES_BY_LANGUAGE["fr"])
     assert aioclient_mock.mock_calls[0][2]["voice"] == "fr_002"
@@ -258,10 +280,13 @@ async def test_options_dict_not_mutated(hass, aioclient_mock) -> None:
 # Direct mode
 # ---------------------------------------------------------------------------
 
+
 async def test_direct_success(hass, aioclient_mock) -> None:
     aioclient_mock.post(DIRECT_URL_0, json={"status_code": 0, "data": {"v_str": B64}})
     ent = _direct_entity(hass)
-    fmt, audio = await ent.async_get_tts_audio("test", "en_us", {CONF_VOICE: "en_us_001"})
+    fmt, audio = await ent.async_get_tts_audio(
+        "test", "en_us", {CONF_VOICE: "en_us_001"}
+    )
     assert fmt == "mp3"
     assert audio == AUDIO
 
@@ -278,12 +303,16 @@ async def test_direct_chunks_long_message(hass, aioclient_mock) -> None:
     assert len(expected_chunks) > 1
 
     ent = _direct_entity(hass)
-    _fmt, audio = await ent.async_get_tts_audio(message, "en_us", {CONF_VOICE: "en_us_001"})
+    _fmt, audio = await ent.async_get_tts_audio(
+        message, "en_us", {CONF_VOICE: "en_us_001"}
+    )
     assert audio == AUDIO * len(expected_chunks)
     assert len(aioclient_mock.mock_calls) == len(expected_chunks)
 
 
-async def test_direct_invalid_session_raises_and_creates_issue(hass, aioclient_mock) -> None:
+async def test_direct_invalid_session_raises_and_creates_issue(
+    hass, aioclient_mock
+) -> None:
     aioclient_mock.post(DIRECT_URL_0, json={"status_code": 4, "status_msg": "expired"})
     ent = _direct_entity(hass)
     with pytest.raises(HomeAssistantError, match="session_id"):
@@ -304,7 +333,9 @@ async def test_direct_empty_audio_raises(hass, aioclient_mock) -> None:
 
 
 async def test_direct_corrupt_base64_raises(hass, aioclient_mock) -> None:
-    aioclient_mock.post(DIRECT_URL_0, json={"status_code": 0, "data": {"v_str": "AAAAA"}})
+    aioclient_mock.post(
+        DIRECT_URL_0, json={"status_code": 0, "data": {"v_str": "AAAAA"}}
+    )
     ent = _direct_entity(hass)
     with pytest.raises(HomeAssistantError, match="corrupt audio"):
         await ent.async_get_tts_audio("test", "en_us", {CONF_VOICE: "en_us_001"})
@@ -317,7 +348,9 @@ async def test_direct_falls_back_to_next_endpoint(hass, aioclient_mock) -> None:
     aioclient_mock.post(fallback_url, json={"status_code": 0, "data": {"v_str": B64}})
 
     ent = _direct_entity(hass)
-    _fmt, audio = await ent.async_get_tts_audio("test", "en_us", {CONF_VOICE: "en_us_001"})
+    _fmt, audio = await ent.async_get_tts_audio(
+        "test", "en_us", {CONF_VOICE: "en_us_001"}
+    )
     assert audio == AUDIO
     # endpoint[0] (1 attempt, then break) + endpoint[1] (success)
     assert len(aioclient_mock.mock_calls) == 2
@@ -330,15 +363,61 @@ async def test_direct_falls_back_after_connection_error(hass, aioclient_mock) ->
     aioclient_mock.post(fallback_url, json={"status_code": 0, "data": {"v_str": B64}})
 
     ent = _direct_entity(hass)
-    _fmt, audio = await ent.async_get_tts_audio("test", "en_us", {CONF_VOICE: "en_us_001"})
+    _fmt, audio = await ent.async_get_tts_audio(
+        "test", "en_us", {CONF_VOICE: "en_us_001"}
+    )
     assert audio == AUDIO
     # endpoint[0] gets REQUEST_MAX_RETRIES + 1 attempts (all error), then endpoint[1] succeeds.
     assert len(aioclient_mock.mock_calls) == (REQUEST_MAX_RETRIES + 1) + 1
 
 
+async def test_direct_remembers_working_endpoint_across_chunks(
+    hass, aioclient_mock
+) -> None:
+    """Once a fallback serves a chunk, later chunks start there directly.
+
+    Without memoization, every chunk would re-probe the dead configured
+    endpoint before failing over.
+    """
+    aioclient_mock.post(DIRECT_URL_0, status=500)
+    fallback_url = f"{DIRECT_API_ENDPOINTS[1]}{DIRECT_API_PATH}"
+    aioclient_mock.post(fallback_url, json={"status_code": 0, "data": {"v_str": B64}})
+
+    message = "word " * 60  # 300 chars -> exactly 2 chunks
+    assert len(tts._split_text(message, tts.DIRECT_API_CHUNK_SIZE)) == 2
+
+    ent = _direct_entity(hass)
+    _fmt, audio = await ent.async_get_tts_audio(
+        message, "en_us", {CONF_VOICE: "en_us_001"}
+    )
+    assert audio == AUDIO * 2
+
+    # Chunk 0: configured endpoint (1 non-200 attempt) + fallback success = 2.
+    # Chunk 1: goes straight to the remembered fallback = 1. Total 3, not 4.
+    assert len(aioclient_mock.mock_calls) == 3
+    assert str(aioclient_mock.mock_calls[-1][1]).startswith(DIRECT_API_ENDPOINTS[1])
+
+
+async def test_direct_total_deadline_caps_slow_messages(
+    hass, aioclient_mock, monkeypatch
+) -> None:
+    """A message that cannot complete within DIRECT_TOTAL_TIMEOUT raises."""
+    monkeypatch.setattr(tts, "DIRECT_TOTAL_TIMEOUT", 0.05)
+
+    async def _hang(method, url, data):
+        await asyncio.sleep(5)
+
+    aioclient_mock.post(DIRECT_URL_0, side_effect=_hang)
+    ent = _direct_entity(hass)
+    with pytest.raises(HomeAssistantError, match="timed out"):
+        await ent.async_get_tts_audio("test", "en_us", {CONF_VOICE: "en_us_001"})
+
+
 async def test_direct_all_endpoints_bad_status(hass, aioclient_mock) -> None:
     for ep in DIRECT_API_ENDPOINTS:
-        aioclient_mock.post(f"{ep}{DIRECT_API_PATH}", json={"status_code": 5, "status_msg": "err"})
+        aioclient_mock.post(
+            f"{ep}{DIRECT_API_PATH}", json={"status_code": 5, "status_msg": "err"}
+        )
     ent = _direct_entity(hass)
     with pytest.raises(HomeAssistantError, match="across all"):
         await ent.async_get_tts_audio("test", "en_us", {CONF_VOICE: "en_us_001"})

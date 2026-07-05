@@ -4,6 +4,7 @@ Covers config-entry setup/unload/remove, the shared-singleton ownership
 transfer when one of several entries is unloaded, the set_random_voices
 service, and persistence of the random-voice pool through the HA Store.
 """
+
 from __future__ import annotations
 
 from homeassistant.config_entries import ConfigEntryState
@@ -104,11 +105,34 @@ async def test_unloading_non_owner_leaves_owner_untouched(hass: HomeAssistant) -
     assert hass.data[DOMAIN].get("shared_owner_entry_id") == proxy.entry_id
 
 
+async def test_reloading_owner_with_survivors_keeps_shared_entities(
+    hass: HomeAssistant,
+) -> None:
+    """Reloading the owner (e.g. an options save) must not orphan the shared
+    entities or bounce ownership between entries."""
+    proxy = await setup_proxy(hass)  # owner
+    direct = await setup_direct(hass)
+
+    assert await hass.config_entries.async_reload(proxy.entry_id)
+    await hass.async_block_till_done()
+
+    assert proxy.state is ConfigEntryState.LOADED
+    assert direct.state is ConfigEntryState.LOADED
+    assert hass.states.get(ENTITY_ID_LANGUAGE).state != STATE_UNAVAILABLE
+    assert hass.data[DOMAIN].get("shared_owner_entry_id") in (
+        proxy.entry_id,
+        direct.entry_id,
+    )
+
+
 # ---------------------------------------------------------------------------
 # set_random_voices service + Store persistence
 # ---------------------------------------------------------------------------
 
-async def test_service_registered_and_persists_to_store(hass: HomeAssistant, hass_storage) -> None:
+
+async def test_service_registered_and_persists_to_store(
+    hass: HomeAssistant, hass_storage
+) -> None:
     await setup_proxy(hass)
     assert hass.services.has_service(DOMAIN, SERVICE_SET_RANDOM_VOICES)
 
@@ -121,7 +145,9 @@ async def test_service_registered_and_persists_to_store(hass: HomeAssistant, has
     assert hass_storage[_STORAGE_KEY]["data"] == {"languages": ["fr", "de"]}
 
 
-async def test_random_pool_loaded_from_store_on_setup(hass: HomeAssistant, hass_storage) -> None:
+async def test_random_pool_loaded_from_store_on_setup(
+    hass: HomeAssistant, hass_storage
+) -> None:
     # Pre-seed the store as if a previous run saved a pool (with one bad code).
     hass_storage[_STORAGE_KEY] = {
         "version": 1,
@@ -130,3 +156,23 @@ async def test_random_pool_loaded_from_store_on_setup(hass: HomeAssistant, hass_
     await setup_proxy(hass)
     # Unknown codes are filtered out at load time.
     assert hass.data[DOMAIN][HASS_DATA_RANDOM_LANGS] == ["de"]
+
+
+async def test_service_survives_after_last_entry_unloaded(
+    hass: HomeAssistant, hass_storage
+) -> None:
+    """The service is registered per HA start, not per entry - calling it
+    after the last entry unloads (which clears hass.data[DOMAIN]) must not
+    crash, and must still persist to the store."""
+    entry = await setup_proxy(hass)
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    await hass.async_block_till_done()
+    assert DOMAIN not in hass.data
+
+    await hass.services.async_call(
+        DOMAIN, SERVICE_SET_RANDOM_VOICES, {"languages": ["ja"]}, blocking=True
+    )
+    await hass.async_block_till_done()
+
+    assert hass.data[DOMAIN][HASS_DATA_RANDOM_LANGS] == ["ja"]
+    assert hass_storage[_STORAGE_KEY]["data"] == {"languages": ["ja"]}

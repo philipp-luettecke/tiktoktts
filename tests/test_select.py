@@ -5,13 +5,12 @@ change rebuilds the voice list, the random-voice option, device discovery) is
 tested through a fully set-up config entry and the `select.select_option`
 service.
 """
-from __future__ import annotations
 
-import pytest
+from __future__ import annotations
 
 from homeassistant.core import HomeAssistant, State
 from homeassistant.exceptions import HomeAssistantError
-
+import pytest
 from pytest_homeassistant_custom_component.common import mock_restore_cache
 
 from custom_components.tiktoktts.const import (
@@ -21,6 +20,7 @@ from custom_components.tiktoktts.const import (
     ENTITY_ID_VOICE,
     LANGUAGE_ALL_CODE,
     LANGUAGE_ALL_NAME,
+    PLACEHOLDER_LOADING,
     RANDOM_VOICE_CODE,
     RANDOM_VOICE_LANG_NAME,
     RANDOM_VOICE_NAME,
@@ -38,13 +38,17 @@ from .helpers import setup_proxy
 
 async def _select(hass: HomeAssistant, entity_id: str, option: str) -> None:
     await hass.services.async_call(
-        "select", "select_option", {"entity_id": entity_id, "option": option}, blocking=True
+        "select",
+        "select_option",
+        {"entity_id": entity_id, "option": option},
+        blocking=True,
     )
 
 
 # ---------------------------------------------------------------------------
 # Pure label/code helpers
 # ---------------------------------------------------------------------------
+
 
 def test_lang_name_round_trip() -> None:
     for code in SUPPORTED_LANGUAGES:
@@ -78,6 +82,7 @@ def test_sort_voices_orders_by_friendly_name() -> None:
 # ---------------------------------------------------------------------------
 # Language / voice dropdown integration
 # ---------------------------------------------------------------------------
+
 
 async def test_initial_language_and_voice_from_default(hass: HomeAssistant) -> None:
     """The configured default voice (and its language) survive a fresh boot."""
@@ -151,10 +156,14 @@ async def test_unknown_option_is_rejected_by_service(hass: HomeAssistant) -> Non
 # Random-voice option
 # ---------------------------------------------------------------------------
 
+
 async def test_random_voice_option_appears_after_service(hass: HomeAssistant) -> None:
     await setup_proxy(hass)
     # Random option absent until a pool is configured.
-    assert RANDOM_VOICE_LANG_NAME not in hass.states.get(ENTITY_ID_LANGUAGE).attributes["options"]
+    assert (
+        RANDOM_VOICE_LANG_NAME
+        not in hass.states.get(ENTITY_ID_LANGUAGE).attributes["options"]
+    )
 
     await hass.services.async_call(
         "tiktoktts", "set_random_voices", {"languages": ["fr", "de"]}, blocking=True
@@ -178,10 +187,14 @@ async def test_set_random_voices_rejects_unknown_codes(hass: HomeAssistant) -> N
     )
     await hass.async_block_till_done()
     # Only the valid language survives.
-    assert hass.states.get(ENTITY_ID_LANGUAGE).attributes["random_voice_languages"] == ["fr"]
+    assert hass.states.get(ENTITY_ID_LANGUAGE).attributes["random_voice_languages"] == [
+        "fr"
+    ]
 
 
-async def test_set_random_voices_accepts_every_supported_language(hass: HomeAssistant) -> None:
+async def test_set_random_voices_accepts_every_supported_language(
+    hass: HomeAssistant,
+) -> None:
     """Every code in SUPPORTED_LANGUAGES (incl. disney) must be accepted.
 
     Guards against the dashboard card sending a friendly label instead of the
@@ -189,14 +202,19 @@ async def test_set_random_voices_accepts_every_supported_language(hass: HomeAssi
     """
     await setup_proxy(hass)
     await hass.services.async_call(
-        "tiktoktts", "set_random_voices", {"languages": list(SUPPORTED_LANGUAGES)}, blocking=True
+        "tiktoktts",
+        "set_random_voices",
+        {"languages": list(SUPPORTED_LANGUAGES)},
+        blocking=True,
     )
     await hass.async_block_till_done()
     saved = hass.states.get(ENTITY_ID_LANGUAGE).attributes["random_voice_languages"]
     assert saved == list(SUPPORTED_LANGUAGES)
 
 
-async def test_language_options_attribute_maps_codes_to_names(hass: HomeAssistant) -> None:
+async def test_language_options_attribute_maps_codes_to_names(
+    hass: HomeAssistant,
+) -> None:
     """The card builds its checkbox list from language_options (code+name pairs)."""
     await setup_proxy(hass)
     options = hass.states.get(ENTITY_ID_LANGUAGE).attributes["language_options"]
@@ -210,9 +228,14 @@ async def test_language_options_attribute_maps_codes_to_names(hass: HomeAssistan
 # Device select
 # ---------------------------------------------------------------------------
 
+
 async def test_device_select_discovers_media_players(hass: HomeAssistant) -> None:
-    hass.states.async_set("media_player.kitchen", "idle", {"friendly_name": "Kitchen Speaker"})
-    hass.states.async_set("media_player.broken", "unavailable", {"friendly_name": "Broken"})
+    hass.states.async_set(
+        "media_player.kitchen", "idle", {"friendly_name": "Kitchen Speaker"}
+    )
+    hass.states.async_set(
+        "media_player.broken", "unavailable", {"friendly_name": "Broken"}
+    )
     await setup_proxy(hass)
 
     device = hass.states.get(ENTITY_ID_DEVICE)
@@ -229,4 +252,59 @@ async def test_device_select_late_registration(hass: HomeAssistant) -> None:
 
     device = hass.states.get(ENTITY_ID_DEVICE)
     assert "Den" in device.attributes["options"]
+    assert device.attributes["code"] == "media_player.den"
+
+
+async def test_device_selection_switches_device(hass: HomeAssistant) -> None:
+    hass.states.async_set("media_player.kitchen", "idle", {"friendly_name": "Kitchen"})
+    hass.states.async_set("media_player.den", "idle", {"friendly_name": "Den"})
+    await setup_proxy(hass)
+
+    await _select(hass, ENTITY_ID_DEVICE, "Kitchen")
+    assert (
+        hass.states.get(ENTITY_ID_DEVICE).attributes["code"] == "media_player.kitchen"
+    )
+
+    await _select(hass, ENTITY_ID_DEVICE, "Den")
+    assert hass.states.get(ENTITY_ID_DEVICE).attributes["code"] == "media_player.den"
+
+
+async def test_device_placeholder_selection_is_ignored(hass: HomeAssistant) -> None:
+    """Selecting the '(loading...)' placeholder must not crash the service.
+
+    With no usable media players, the placeholder is the only option, so HA's
+    own option validation lets it through - the entity has to reject it.
+    """
+    await setup_proxy(hass)  # no media players exist
+
+    device = hass.states.get(ENTITY_ID_DEVICE)
+    assert device.attributes["options"] == [PLACEHOLDER_LOADING]
+
+    await _select(hass, ENTITY_ID_DEVICE, PLACEHOLDER_LOADING)
+
+    device = hass.states.get(ENTITY_ID_DEVICE)
+    assert device.state == PLACEHOLDER_LOADING
+    assert device.attributes["code"] == ""
+
+
+async def test_device_restored_selection_waits_for_late_player(
+    hass: HomeAssistant,
+) -> None:
+    """A restored device that is not yet available is kept, not overwritten."""
+    mock_restore_cache(
+        hass,
+        (State(ENTITY_ID_DEVICE, "Den", {"code": "media_player.den"}),),
+    )
+    hass.states.async_set("media_player.kitchen", "idle", {"friendly_name": "Kitchen"})
+    await setup_proxy(hass)
+
+    # Kitchen is available but must NOT displace the restored (absent) Den.
+    assert hass.states.get(ENTITY_ID_DEVICE).attributes["code"] == "media_player.den"
+
+    # When Den registers, the listener resolves the restored selection.
+    hass.states.async_set("media_player.den", "idle", {"friendly_name": "Den"})
+    await hass.async_block_till_done()
+
+    device = hass.states.get(ENTITY_ID_DEVICE)
+    assert device.state == "Den"
     assert device.attributes["code"] == "media_player.den"

@@ -5,10 +5,10 @@ The `pytest_homeassistant_custom_component` plugin provides the `hass`,
 `auto_enable_custom_integrations` is autouse so every test can load the
 `tiktoktts` custom integration without opting in explicitly.
 """
+
 from __future__ import annotations
 
 import pytest
-
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.tiktoktts.const import (

@@ -1,4 +1,5 @@
 """Smoke test: the integration imports and sets up from a config entry."""
+
 from __future__ import annotations
 
 from homeassistant.config_entries import ConfigEntryState

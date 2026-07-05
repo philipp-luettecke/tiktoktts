@@ -5,6 +5,7 @@ typo'd voice code, a language present in one table but not another, or a
 default that points at a non-existent voice would all break the integration
 at runtime. None of these need Home Assistant.
 """
+
 from __future__ import annotations
 
 import collections

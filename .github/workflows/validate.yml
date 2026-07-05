@@ -31,10 +31,3 @@ jobs:
         uses: hacs/action@main
         with:
           category: integration
-          # The HACS brands check verifies the domain exists in the central
-          # home-assistant/brands repo. This integration instead ships its own
-          # images in custom_components/tiktoktts/brand/, which Home Assistant
-          # serves via the brands proxy API (HA 2026.3+), so a central-repo
-          # submission isn't required for custom-repo installs. Drop this ignore
-          # if you later add the domain to home-assistant/brands.
-          ignore: brands

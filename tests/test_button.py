@@ -4,13 +4,15 @@ The button reads the shared helper entities and dispatches a tts.speak call.
 The tts.speak service is mocked so we can assert exactly what would be sent
 without going near the network.
 """
+
 from __future__ import annotations
 
 from homeassistant.core import HomeAssistant, ServiceCall
-
 from pytest_homeassistant_custom_component.common import async_mock_service
 
+from custom_components.tiktoktts.button import SpeakButtonEntity
 from custom_components.tiktoktts.const import (
+    ENTITY_ID_DEVICE,
     ENTITY_ID_LANGUAGE,
     ENTITY_ID_MESSAGE,
     ENTITY_ID_SPEAK,
@@ -33,7 +35,10 @@ def _mock_tts(hass: HomeAssistant) -> list[ServiceCall]:
 
 async def _set_message(hass: HomeAssistant, value: str) -> None:
     await hass.services.async_call(
-        "text", "set_value", {"entity_id": ENTITY_ID_MESSAGE, "value": value}, blocking=True
+        "text",
+        "set_value",
+        {"entity_id": ENTITY_ID_MESSAGE, "value": value},
+        blocking=True,
     )
 
 
@@ -68,6 +73,51 @@ async def test_press_with_empty_message_does_nothing(hass: HomeAssistant) -> Non
     calls = _mock_tts(hass)
     await _set_message(hass, "   ")  # whitespace only -> treated as empty
     await _press(hass)
+    assert calls == []
+
+
+async def test_press_with_unavailable_message_does_nothing(hass: HomeAssistant) -> None:
+    """An unavailable message entity must not speak the literal 'unavailable'."""
+    hass.states.async_set(KITCHEN, "idle", {"friendly_name": "Kitchen"})
+    await setup_proxy(hass)
+    calls = _mock_tts(hass)
+    hass.states.async_set(ENTITY_ID_MESSAGE, "unavailable")
+    await _press(hass)
+    assert calls == []
+
+
+async def test_press_without_voice_code_does_nothing(hass: HomeAssistant) -> None:
+    """A voice entity without a 'code' attribute (not loaded yet) is rejected."""
+    hass.states.async_set(KITCHEN, "idle", {"friendly_name": "Kitchen"})
+    await setup_proxy(hass)
+    calls = _mock_tts(hass)
+    await _set_message(hass, "Hello")
+    hass.states.async_set(ENTITY_ID_VOICE, "Jessie")  # no attributes
+    await _press(hass)
+    assert calls == []
+
+
+async def test_press_without_loaded_tts_entry_does_nothing(hass: HomeAssistant) -> None:
+    """With all fields set but no loaded config entry, no tts.speak is sent."""
+    calls = _mock_tts(hass)
+    hass.states.async_set(ENTITY_ID_MESSAGE, "Hello")
+    hass.states.async_set(ENTITY_ID_VOICE, "Jessie", {"code": "en_us_001"})
+    hass.states.async_set(ENTITY_ID_DEVICE, "Kitchen", {"code": KITCHEN})
+
+    button = SpeakButtonEntity()
+    button.hass = hass
+    await button.async_press()
+    assert calls == []
+
+
+async def test_press_with_helper_entities_missing_does_nothing(
+    hass: HomeAssistant,
+) -> None:
+    """Missing helper entities (never created) resolve to empty values."""
+    calls = _mock_tts(hass)
+    button = SpeakButtonEntity()
+    button.hass = hass
+    await button.async_press()
     assert calls == []
 
 

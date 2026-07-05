@@ -1,8 +1,8 @@
 """Shared helpers for entity tests that need a fully set-up config entry."""
+
 from __future__ import annotations
 
 from homeassistant.core import HomeAssistant
-
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.tiktoktts.const import (
@@ -19,7 +19,9 @@ from custom_components.tiktoktts.const import (
 )
 
 
-async def setup_proxy(hass: HomeAssistant, voice: str = DEFAULT_VOICE) -> MockConfigEntry:
+async def setup_proxy(
+    hass: HomeAssistant, voice: str = DEFAULT_VOICE
+) -> MockConfigEntry:
     """Add and set up a proxy config entry, returning the entry."""
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -35,7 +37,9 @@ async def setup_proxy(hass: HomeAssistant, voice: str = DEFAULT_VOICE) -> MockCo
     return entry
 
 
-async def setup_direct(hass: HomeAssistant, voice: str = DEFAULT_VOICE) -> MockConfigEntry:
+async def setup_direct(
+    hass: HomeAssistant, voice: str = DEFAULT_VOICE
+) -> MockConfigEntry:
     """Add and set up a direct config entry, returning the entry."""
     entry = MockConfigEntry(
         domain=DOMAIN,

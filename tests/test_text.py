@@ -1,8 +1,8 @@
 """Tests for the shared message text entity (text.py)."""
+
 from __future__ import annotations
 
 from homeassistant.core import HomeAssistant, State
-
 from pytest_homeassistant_custom_component.common import mock_restore_cache
 
 from custom_components.tiktoktts.const import ENTITY_ID_MESSAGE

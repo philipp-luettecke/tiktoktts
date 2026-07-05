@@ -30,3 +30,6 @@ ha-ffmpeg==3.2.2
 # Coverage reporting (pytest --cov). Already pulled in transitively, pinned
 # here so `pytest --cov=custom_components.tiktoktts` works from a clean install.
 pytest-cov
+
+# Lint + formatter, matching the CI "Ruff" job (config in ruff.toml).
+ruff
