@@ -1,37 +1,33 @@
-name: "Validate"
+name: Validate
 
 on:
+  push:
+  pull_request:
   workflow_dispatch:
   schedule:
-    - cron:  "0 0 * * *"
-  push:
-    branches:
-      - "main"
-  pull_request:
-    branches:
-      - "main"
+    # Run daily so we catch breakage from Home Assistant / HACS changes even
+    # when the repo itself hasn't changed.
+    - cron: "30 4 * * *"
 
 jobs:
-  hassfest: # https://developers.home-assistant.io/blog/2020/04/16/hassfest
-    name: "Hassfest Validation"
-    runs-on: "ubuntu-latest"
+  hassfest:
+    name: Hassfest
+    runs-on: ubuntu-latest
     steps:
-        - name: "Checkout the repository"
-          uses: "actions/checkout@v3.5.3"
+      - name: Checkout
+        uses: actions/checkout@v5
 
-        - name: "Run hassfest validation"
-          uses: "home-assistant/actions/hassfest@master"
+      - name: Run hassfest
+        uses: home-assistant/actions/hassfest@master
 
-  hacs: # https://github.com/hacs/action
-    name: "HACS Validation"
-    runs-on: "ubuntu-latest"
+  hacs:
+    name: HACS
+    runs-on: ubuntu-latest
     steps:
-        - name: "Checkout the repository"
-          uses: "actions/checkout@v3.5.3"
+      - name: Checkout
+        uses: actions/checkout@v5
 
-        - name: "Run HACS validation"
-          uses: "hacs/action@main"
-          with:
-            category: "integration"
-            # Remove this 'ignore' key when you have added brand images for your integration to https://github.com/home-assistant/brands
-            ignore: "brands"
+      - name: Run HACS validation
+        uses: hacs/action@main
+        with:
+          category: integration

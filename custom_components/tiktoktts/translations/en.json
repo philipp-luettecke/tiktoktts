@@ -1,18 +1,70 @@
 {
-    "config": {
-        "step": {
-            "user": {
-                "description": "If you need help with the configuration have a look here: https://github.com/ludeeus/tiktoktts",
-                "data": {
-                    "username": "Username",
-                    "password": "Password"
-                }
-            }
-        },
-        "error": {
-            "auth": "Username/Password is wrong.",
-            "connection": "Unable to connect to the server.",
-            "unknown": "Unknown error occurred."
+  "config": {
+    "step": {
+      "user": {
+        "title": "TikTok TTS — Choose API Mode",
+        "description": "Select how this integration connects to TikTok TTS.\n\n**Community Proxy** (recommended) — No TikTok account needed. Uses the open-source proxy by [Weilbyte]({weilbyte_url}). You can self-host your own instance for better reliability.\n\n**Direct API** — Calls TikTok's servers directly using your TikTok session cookie. Requires a TikTok account and may violate TikTok's Terms of Service.\n\n---\n*Originally by [@philipp-luettecke]({original_url}). Forked and extended by [@sfox38]({fork_url}).*",
+        "data": {
+          "api_mode": "Connection mode"
         }
+      },
+      "proxy": {
+        "title": "TikTok TTS — Proxy Configuration",
+        "description": "The default endpoint is the community proxy hosted by [Weilbyte]({weilbyte_url}). For better reliability you can self-host your own instance and enter its URL here.",
+        "data": {
+          "api_endpoint": "Proxy endpoint URL",
+          "voice": "Default voice"
+        }
+      },
+      "direct": {
+        "title": "TikTok TTS — Direct API Configuration",
+        "description": "⚠️ **Warning:** This uses TikTok's unofficial internal API, reverse-engineered by the open-source community. Use may violate TikTok's Terms of Service. Use at your own risk.\n\nTo find your session ID:\n1. Log in to TikTok in your browser\n2. Open Developer Tools (F12) → Application → Cookies\n3. Copy the value of the `sessionid` cookie",
+        "data": {
+          "api_endpoint": "TikTok API endpoint",
+          "session_id": "TikTok session ID (from browser cookie)",
+          "voice": "Default voice"
+        }
+      }
+    },
+    "error": {
+      "endpoint_unavailable": "The endpoint responded but reports it is currently unavailable.",
+      "endpoint_bad_status": "The endpoint returned an unexpected HTTP status code.",
+      "endpoint_timeout": "Connection timed out. Check the URL and your network.",
+      "endpoint_connection_error": "Could not connect to the endpoint. Check the URL is correct.",
+      "endpoint_unknown_error": "An unexpected error occurred while testing the endpoint.",
+      "direct_api_rejected": "TikTok rejected the request. Your session ID may be invalid or expired.",
+      "invalid_url_scheme": "The endpoint URL must start with http:// or https://."
+    },
+    "abort": {
+      "already_configured": "TikTok TTS is already configured."
     }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "TikTok TTS — Update Settings",
+        "description": "Update the endpoint URL, session ID (direct mode only), or default voice. Changes take effect immediately after saving — no restart needed.",
+        "data": {
+          "api_endpoint": "Endpoint URL",
+          "session_id": "TikTok session ID",
+          "voice": "Default voice"
+        }
+      }
+    },
+    "error": {
+      "endpoint_unavailable": "The endpoint responded but reports it is currently unavailable.",
+      "endpoint_bad_status": "The endpoint returned an unexpected HTTP status code.",
+      "endpoint_timeout": "Connection timed out. Check the URL and your network.",
+      "endpoint_connection_error": "Could not connect. Check the URL is correct.",
+      "endpoint_unknown_error": "An unexpected error occurred while testing the endpoint.",
+      "direct_api_rejected": "TikTok rejected the request. Your session ID may be invalid or expired.",
+      "invalid_url_scheme": "The endpoint URL must start with http:// or https://."
+    }
+  },
+  "issues": {
+    "direct_api_session_expired": {
+      "title": "TikTok TTS: Direct API session expired",
+      "description": "Your TikTok session ID is invalid or has expired. TikTok TTS (Direct API mode) will not work until you update it.\n\nTo fix this:\n1. Log in to TikTok in your browser\n2. Open Developer Tools (F12) → Application → Cookies\n3. Copy the value of the `sessionid` cookie\n4. Go to **Settings → Devices & Services → TikTok TTS → Configure** and paste the new session ID."
+    }
+  }
 }

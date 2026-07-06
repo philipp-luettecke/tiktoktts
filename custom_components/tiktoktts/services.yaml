@@ -1,0 +1,45 @@
+set_random_voices:
+  name: Set Random Voices
+  description: Set the language groups included in the Random Voice pool. Called internally by the TikTokTTS dashboard card.
+  fields:
+    languages:
+      name: Languages
+      description: List of language codes to include (e.g. en_us, ja, de). Pass an empty list to clear the pool.
+      required: true
+      example: '["en_us", "en_uk"]'
+      selector:
+        select:
+          multiple: true
+          options:
+            - value: "en_us"
+              label: "🇺🇸 English (US)"
+            - value: "en_uk"
+              label: "🇬🇧 English (UK)"
+            - value: "en_au"
+              label: "🇦🇺 English (AU)"
+            - value: "disney"
+              label: "🎭 Disney / Character"
+            - value: "music"
+              label: "🎵 Music / Singing"
+            - value: "fr"
+              label: "🇫🇷 French"
+            - value: "it"
+              label: "🇮🇹 Italian"
+            - value: "es"
+              label: "🇪🇸 Spanish"
+            - value: "es_mx"
+              label: "🇲🇽 Spanish (Mexico)"
+            - value: "de"
+              label: "🇩🇪 German"
+            - value: "pt_br"
+              label: "🇧🇷 Portuguese (Brazil)"
+            - value: "pt_pt"
+              label: "🇵🇹 Portuguese (Portugal)"
+            - value: "id"
+              label: "🇮🇩 Indonesian"
+            - value: "ja"
+              label: "🇯🇵 Japanese"
+            - value: "ko"
+              label: "🇰🇷 Korean"
+            - value: "vi"
+              label: "🇻🇳 Vietnamese"

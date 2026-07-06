@@ -1,0 +1,35 @@
+# Test dependencies for the TikTok TTS integration.
+#
+# pytest-homeassistant-custom-component pins a specific Home Assistant
+# release (currently HA 2026.6.3) and pulls in pytest, pytest-asyncio, aiohttp
+# test utilities, and the `hass`/`aioclient_mock`/`MockConfigEntry` fixtures
+# used by this suite.
+#
+# Install into a Python 3.14 virtualenv (HA 2026.3+ requires Python 3.14):
+#   uv venv --python 3.14 .venv
+#   source .venv/bin/activate
+#   uv pip install -r requirements_test.txt
+#
+# Then run:  pytest
+pytest-homeassistant-custom-component==0.13.339
+
+# The integration's manifest declares `frontend` as a dependency, so Home
+# Assistant refuses to set up the config entry unless the compiled frontend
+# package is importable. Pin it to the version the installed HA release
+# requires (frontend manifest: home-assistant-frontend==20260527.6).
+home-assistant-frontend==20260527.6
+
+# Required by the built-in `tts` component (homeassistant.components.tts),
+# which our TextToSpeechEntity subclasses. Pin matches the tts manifest.
+mutagen==1.47.0
+
+# Pulled in transitively by `tts` (it imports the ffmpeg component at module
+# load time). Pin matches the ffmpeg manifest.
+ha-ffmpeg==3.2.2
+
+# Coverage reporting (pytest --cov). Already pulled in transitively, pinned
+# here so `pytest --cov=custom_components.tiktoktts` works from a clean install.
+pytest-cov
+
+# Lint + formatter, matching the CI "Ruff" job (config in ruff.toml).
+ruff

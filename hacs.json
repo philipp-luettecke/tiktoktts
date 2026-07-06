@@ -1,7 +1,4 @@
 {
-    "name": "TikTok TTS",
-    "zip_release": true,
-    "filename": "tiktoktts.zip",
-    "homeassistant": "2023.3.0",
-    "render_readme": true
+  "name": "TikTok TTS",
+  "render_readme": true
 }

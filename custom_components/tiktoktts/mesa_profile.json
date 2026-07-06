@@ -1,0 +1,23 @@
+{
+  "semantic_profile": {
+    "schema_version": "1.0",
+    "semantic_tags": ["tts.multilingual", "tts.expressive_voices", "resource.cloud_dependent", "tiktoktts.proxy_synthesis"],
+    "operational_boundaries": {
+      "control_mode": "confirm",
+      "enforcement_mode": "advisory",
+      "reversible": true,
+      "reversibility_cost": "trivial",
+      "side_effect_scope": "room_localized",
+      "control_reason": "These entities compose and speak a message through TikTok's external TTS service: triggering speak (the button or the tts engine) sends the text off-device to a third-party API and plays audio on a media player. An agent should confirm first, both to avoid unexpected announcements and because the text leaves the home."
+    },
+    "metadata_origin": {
+      "source": "developer",
+      "confidence": 0.9
+    }
+  },
+  "privacy_classification": {
+    "level": "normal",
+    "access_logging_recommended": true,
+    "privacy_note": "Synthesizing speech sends the message text to TikTok's unofficial TTS service (proxy or direct API), so any text an agent speaks leaves the home to a third party."
+  }
+}
